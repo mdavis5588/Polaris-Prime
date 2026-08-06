@@ -1,0 +1,157 @@
+apiVersion: scaffolder.backstage.io/v1beta3
+kind: Template
+metadata:
+  name: oracle-dbaas
+  title: Oracle Database as a Service
+  description: >
+    Provision an Oracle Database on-premises, on Oracle Cloud Infrastructure
+    (OCI), or on Microsoft Azure.
+  tags:
+    - database
+    - oracle
+spec:
+  owner: platform-team
+  type: database
+
+  parameters:
+    - title: Database Configuration
+      required: [dbName, oracleVersion, dbAdminPassword]
+      properties:
+        dbName:
+          title: Database Name
+          type: string
+          description: Name for the new database instance
+          pattern: '^[a-zA-Z][a-zA-Z0-9]{0,7}$'
+        oracleVersion:
+          title: Oracle Version
+          type: string
+          enum: ['19c', '21c', '23ai']
+          enumNames: ['Oracle 19c', 'Oracle 21c', 'Oracle 23ai']
+        dbAdminPassword:
+          title: Admin Password
+          type: string
+          description: Password for the database administrator account
+          ui:widget: password
+
+    - title: Deployment Target
+      required: [target]
+      properties:
+        target:
+          title: Where do you want to deploy?
+          type: string
+          enum: [onprem, oci, azure]
+          enumNames: ['On-Premises', 'Oracle Cloud (OCI)', 'Microsoft Azure']
+      dependencies:
+        target:
+          oneOf:
+            # ---- On-prem: free-form sizing, no license question ----
+            - properties:
+                target:
+                  enum: [onprem]
+                cpuCores:
+                  title: CPU Cores
+                  type: number
+                  minimum: 1
+                memoryGb:
+                  title: Memory (GB)
+                  type: number
+                  minimum: 1
+                storageGb:
+                  title: Storage (GB)
+                  type: number
+                  minimum: 10
+              required: [cpuCores, memoryGb, storageGb]
+
+            # ---- OCI: license model + DB System shape dropdown ----
+            - properties:
+                target:
+                  enum: [oci]
+                licenseModel:
+                  title: License Model
+                  type: string
+                  enum: [BYOL, LICENSE_INCLUDED]
+                  enumNames:
+                    ['Bring Your Own License', 'License Included (Subscription)']
+                ociShape:
+                  title: DB System Shape
+                  type: string
+                  enum:
+                    - VM.Standard.E4.Flex.2.32
+                    - VM.Standard.E4.Flex.4.64
+                    - VM.Standard.E4.Flex.8.128
+                  enumNames:
+                    - '2 OCPU / 32 GB'
+                    - '4 OCPU / 64 GB'
+                    - '8 OCPU / 128 GB'
+              required: [licenseModel, ociShape]
+
+            # ---- Azure: license model + VM size dropdown ----
+            - properties:
+                target:
+                  enum: [azure]
+                licenseModel:
+                  title: License Model
+                  type: string
+                  enum: [BYOL, PAYG]
+                  enumNames:
+                    [
+                      'Bring Your Own License',
+                      'Pay-As-You-Go (License Included)',
+                    ]
+                azureVmSize:
+                  title: VM Size
+                  type: string
+                  enum:
+                    - Standard_E4s_v5
+                    - Standard_E8s_v5
+                    - Standard_E16s_v5
+                    - Standard_M8ms
+                  enumNames:
+                    - 'E4s v5 — 4 vCPU / 32 GB'
+                    - 'E8s v5 — 8 vCPU / 64 GB'
+                    - 'E16s v5 — 16 vCPU / 128 GB'
+                    - 'M8ms — 8 vCPU / 218 GB (memory-optimized)'
+              required: [licenseModel, azureVmSize]
+
+  steps:
+    - id: provision-oci
+      name: Provision Oracle DB System on OCI
+      if: ${{ parameters.target === "oci" }}
+      action: oracle:oci:createDbSystem
+      input:
+        dbName: ${{ parameters.dbName }}
+        oracleVersion: ${{ parameters.oracleVersion }}
+        shape: ${{ parameters.ociShape }}
+        licenseModel: ${{ parameters.licenseModel }}
+        adminPassword: ${{ parameters.dbAdminPassword }}
+
+    - id: provision-azure
+      name: Provision Oracle DB VM on Azure
+      if: ${{ parameters.target === "azure" }}
+      action: oracle:azure:createVm
+      input:
+        dbName: ${{ parameters.dbName }}
+        oracleVersion: ${{ parameters.oracleVersion }}
+        vmSize: ${{ parameters.azureVmSize }}
+        licenseModel: ${{ parameters.licenseModel }}
+        adminPassword: ${{ parameters.dbAdminPassword }}
+
+    - id: provision-onprem
+      name: Request On-Prem Provisioning
+      if: ${{ parameters.target === "onprem" }}
+      action: oracle:onprem:requestProvision
+      input:
+        dbName: ${{ parameters.dbName }}
+        oracleVersion: ${{ parameters.oracleVersion }}
+        cpuCores: ${{ parameters.cpuCores }}
+        memoryGb: ${{ parameters.memoryGb }}
+        storageGb: ${{ parameters.storageGb }}
+
+  output:
+    links:
+      - title: OCI Console
+        url: ${{ steps['provision-oci'].output.consoleUrl }}
+        if: ${{ parameters.target === "oci" }}
+      - title: Azure Portal
+        url: ${{ steps['provision-azure'].output.consoleUrl }}
+        if: ${{ parameters.target === "azure" }}

@@ -115,6 +115,12 @@ catalog:
       rules:
         - allow: [Template]
 
+    # Oracle Database as a Service template
+    - type: file
+      target: ../../templates/oracle-dbaas/template.yaml
+      rules:
+        - allow: [Template]
+
     # Local example organizational data
     - type: file
       target: ../../examples/org.yaml
@@ -143,3 +149,37 @@ permission:
 mcpActions:
   name: 'My Company Backstage' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
+
+# Platform-level config for the oracle-dbaas scaffolder template. These are
+# NOT exposed to end users in the template form — they're infra defaults
+# (compartment, subnet, service credentials) that the platform team owns.
+# All values are sourced from environment variables; nothing here is a
+# committed secret.
+oracleDbaas:
+  oci:
+    region: ${OCI_REGION}
+    tenancyOcid: ${OCI_TENANCY_OCID}
+    userOcid: ${OCI_USER_OCID}
+    fingerprint: ${OCI_FINGERPRINT}
+    privateKey: ${OCI_PRIVATE_KEY}
+    # passphrase: ${OCI_PRIVATE_KEY_PASSPHRASE} # only if the key is encrypted
+    compartmentId: ${OCI_COMPARTMENT_ID}
+    availabilityDomain: ${OCI_AVAILABILITY_DOMAIN}
+    subnetId: ${OCI_SUBNET_ID}
+    sshPublicKey: ${OCI_SSH_PUBLIC_KEY}
+  azure:
+    subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+    tenantId: ${AZURE_TENANT_ID}
+    clientId: ${AZURE_CLIENT_ID}
+    clientSecret: ${AZURE_CLIENT_SECRET}
+    resourceGroup: ${AZURE_RESOURCE_GROUP}
+    location: ${AZURE_LOCATION}
+    subnetId: ${AZURE_SUBNET_ID}
+    adminUsername: oracleadmin
+    image:
+      publisher: Oracle
+      offer: oracle-database
+      defaultSku: '19'
+      skus:
+        19c: '19'
+        21c: '21'
