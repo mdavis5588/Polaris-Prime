@@ -23,3 +23,8 @@ export const oracleDbaasModule = createBackendModule({
     });
   },
 });
+
+// backend.add(import('./modules/oracleDbaas/module')) only picks up a
+// default export — without this, the dynamic import resolves to a plain
+// object with no $$type and backend.add() rejects it.
+export default oracleDbaasModule;
