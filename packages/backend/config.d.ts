@@ -127,4 +127,27 @@ export interface Config {
       };
     };
   };
+
+  /**
+   * Read-only connection to Helios/SAM-tool's Postgres database, used by
+   * the sam-pricing backend plugin to read shared.oracle_product_list_prices
+   * for accurate Oracle pricing in the DBaaS cost comparison, instead of
+   * relying only on public list prices.
+   */
+  samTool?: {
+    database?: {
+      host: string;
+      port: number;
+      database: string;
+      user: string;
+      /**
+       * @visibility secret
+       */
+      password: string;
+      /**
+       * Whether to connect over SSL. Defaults to false.
+       */
+      ssl?: boolean;
+    };
+  };
 }

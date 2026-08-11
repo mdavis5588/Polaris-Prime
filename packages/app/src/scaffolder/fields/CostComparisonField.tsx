@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
-import { useApi, discoveryApiRef } from '@backstage/core-plugin-api';
+import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 const HOURS_PER_YEAR = 8760;
 // Matches Helios's default managed on-prem rate (adjustable there; fixed
@@ -16,21 +16,57 @@ const OCI_DB_KEYWORDS = [
 ];
 const OCI_OCPU_METRICS = new Set(['ocpu per hour', 'ocpu-hour', 'ocpu hour']);
 
-// Static fallback OCI list prices (USD/OCPU/hour) used if the live API is
-// unreachable — mirrors Helios's fallback table.
+// Static fallback OCI list prices (USD/OCPU/hour) used if neither SAM-tool
+// nor the live OCI API are reachable — mirrors Helios's fallback table.
 const OCI_STATIC_BYOL = 0.448;
 const OCI_STATIC_LI = 2.9008;
+
+type OciRateSource = 'sam-tool' | 'live-oci' | 'static';
 
 interface PricingState {
   loading: boolean;
   ociByolRate: number;
   ociLiRate: number;
-  usedLiveOci: boolean;
+  ociSource: OciRateSource;
   azurePerVcpuRate: number;
   usedLiveAzure: boolean;
 }
 
-async function fetchOciRates(
+/** Reads Helios/SAM-tool's own imported Oracle price list, via the
+ * sam-pricing backend plugin (direct read of shared.oracle_product_list_prices). */
+async function fetchSamToolOciRates(
+  fetchApi: { fetch: typeof fetch },
+  discoveryApi: { getBaseUrl(pluginId: string): Promise<string> },
+): Promise<{ byol?: number; li?: number }> {
+  const baseUrl = await discoveryApi.getBaseUrl('sam-pricing');
+  const res = await fetchApi.fetch(`${baseUrl}/oracle-list-prices`);
+  if (!res.ok) throw new Error(`SAM-tool pricing fetch failed: ${res.status}`);
+  const rows = (await res.json()) as {
+    productName: string;
+    metric: string;
+    listPrice: number;
+  }[];
+  let byol: number | undefined;
+  let li: number | undefined;
+  for (const row of rows) {
+    const nameLower = (row.productName ?? '').toLowerCase();
+    const metricLower = (row.metric ?? '').toLowerCase();
+    if (!OCI_DB_KEYWORDS.some(kw => nameLower.includes(kw))) continue;
+    if (!OCI_OCPU_METRICS.has(metricLower)) continue;
+    if (byol === undefined && (nameLower.includes('byol') || nameLower.includes('bring your own'))) {
+      byol = row.listPrice;
+    }
+    if (
+      li === undefined &&
+      (nameLower.includes('license included') || nameLower.includes('licence included'))
+    ) {
+      li = row.listPrice;
+    }
+  }
+  return { byol, li };
+}
+
+async function fetchLiveOciRates(
   proxyBaseUrl: string,
 ): Promise<{ byol?: number; li?: number }> {
   const res = await fetch(`${proxyBaseUrl}/oci-pricing`);
@@ -80,24 +116,34 @@ async function fetchAzurePerVcpuRate(proxyBaseUrl: string): Promise<number> {
   return total / count;
 }
 
+const OCI_SOURCE_LABEL: Record<OciRateSource, string> = {
+  'sam-tool': "Helios/SAM-tool's imported price list",
+  'live-oci': 'live OCI public pricing',
+  static: 'OCI static fallback',
+};
+
 /**
  * Shows a live cost comparison across On-Premises, OCI, and Azure (BYOL vs.
  * License Included) for the CPU core count entered earlier in this step.
- * Fetches Oracle's public OCI pricing API and Azure's public Retail Prices
- * API through Backstage's proxy plugin (avoids CORS), falling back to
- * static list prices if either is unreachable. Oracle-only: the licensing
- * math (OCI OCPU rates, Azure's 0.5 core-factor doubling vCPUs) doesn't
- * apply to other database engines.
+ *
+ * OCI rates are read in priority order: Helios/SAM-tool's own imported
+ * price list (shared.oracle_product_list_prices, via the sam-pricing
+ * backend plugin) first, since that reflects the org's actual negotiated
+ * prices; then Oracle's public pricing API; then a static fallback.
+ * Azure rates come from the public Retail Prices API (no org-specific
+ * source exists for that), or a static fallback. Oracle-only: the
+ * licensing math doesn't apply to other database engines.
  */
 export const CostComparisonField = ({
   formContext,
 }: FieldExtensionComponentProps<string>) => {
   const discoveryApi = useApi(discoveryApiRef);
+  const fetchApi = useApi(fetchApiRef);
   const [pricing, setPricing] = useState<PricingState>({
     loading: true,
     ociByolRate: OCI_STATIC_BYOL,
     ociLiRate: OCI_STATIC_LI,
-    usedLiveOci: false,
+    ociSource: 'static',
     azurePerVcpuRate: AZURE_STATIC_PER_VCPU,
     usedLiveAzure: false,
   });
@@ -115,19 +161,30 @@ export const CostComparisonField = ({
 
       let ociByolRate = OCI_STATIC_BYOL;
       let ociLiRate = OCI_STATIC_LI;
-      let usedLiveOci = false;
+      let ociSource: OciRateSource = 'static';
+
       try {
-        const rates = await fetchOciRates(proxyBaseUrl);
-        if (rates.byol !== undefined) {
-          ociByolRate = rates.byol;
-          usedLiveOci = true;
-        }
-        if (rates.li !== undefined) {
-          ociLiRate = rates.li;
-          usedLiveOci = true;
+        const samRates = await fetchSamToolOciRates(fetchApi, discoveryApi);
+        if (samRates.byol !== undefined || samRates.li !== undefined) {
+          if (samRates.byol !== undefined) ociByolRate = samRates.byol;
+          if (samRates.li !== undefined) ociLiRate = samRates.li;
+          ociSource = 'sam-tool';
         }
       } catch {
-        // keep static fallback
+        // fall through to live OCI API
+      }
+
+      if (ociSource === 'static') {
+        try {
+          const liveRates = await fetchLiveOciRates(proxyBaseUrl);
+          if (liveRates.byol !== undefined || liveRates.li !== undefined) {
+            if (liveRates.byol !== undefined) ociByolRate = liveRates.byol;
+            if (liveRates.li !== undefined) ociLiRate = liveRates.li;
+            ociSource = 'live-oci';
+          }
+        } catch {
+          // keep static fallback
+        }
       }
 
       let azurePerVcpuRate = AZURE_STATIC_PER_VCPU;
@@ -144,7 +201,7 @@ export const CostComparisonField = ({
           loading: false,
           ociByolRate,
           ociLiRate,
-          usedLiveOci,
+          ociSource,
           azurePerVcpuRate,
           usedLiveAzure,
         });
@@ -153,7 +210,7 @@ export const CostComparisonField = ({
     return () => {
       cancelled = true;
     };
-  }, [discoveryApi]);
+  }, [discoveryApi, fetchApi]);
 
   if (dbProduct !== 'oracle') {
     return (
@@ -234,9 +291,8 @@ export const CostComparisonField = ({
         </tbody>
       </table>
       <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>
-        Compute-only list price estimates (
-        {pricing.usedLiveOci ? 'live OCI pricing' : 'OCI static fallback'},{' '}
-        {pricing.usedLiveAzure ? 'live Azure pricing' : 'Azure static fallback'}
+        Compute-only list price estimates (OCI: {OCI_SOURCE_LABEL[pricing.ociSource]}
+        , Azure: {pricing.usedLiveAzure ? 'live Azure pricing' : 'Azure static fallback'}
         ). On-Prem uses a fixed ${DEFAULT_ONPREM_PER_CORE.toLocaleString()}
         /core/year managed-service rate. Excludes storage, networking, and
         negotiated discounts.

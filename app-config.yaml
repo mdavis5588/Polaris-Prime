@@ -188,3 +188,15 @@ oracleDbaas:
       skus:
         19c: '19'
         21c: '21'
+
+# Read-only connection to Helios/SAM-tool's Postgres database, used by the
+# sam-pricing backend plugin so the DBaaS cost comparison reflects actual
+# imported Oracle prices rather than only public list prices.
+samTool:
+  database:
+    host: ${SAM_TOOL_DB_HOST}
+    port: ${SAM_TOOL_DB_PORT}
+    database: ${SAM_TOOL_DB_NAME}
+    user: ${SAM_TOOL_DB_READONLY_USER}
+    password: ${SAM_TOOL_DB_READONLY_PASSWORD}
+    ssl: true
