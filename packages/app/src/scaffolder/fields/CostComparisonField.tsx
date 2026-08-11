@@ -3,11 +3,26 @@ import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 const HOURS_PER_YEAR = 8760;
-// Matches Helios's default managed on-prem rate (adjustable there; fixed
-// here since there's no client-adjustment UI in this template). This is a
-// blended managed-service rate (infra + support + license), unlike the
-// cloud rows below which are compute/license + storage added separately.
+// Helios's default managed on-prem rate (adjustable there; fixed here
+// since there's no client-adjustment UI in this template). This is the
+// managed-service/infra fee ONLY — license purchase + support is a
+// separate line below, same split Helios uses.
 const DEFAULT_ONPREM_PER_CORE = 2175.58;
+
+// Oracle standard annual support rate on a perpetual license — matches
+// Helios's SUPPORT_RATE constant.
+const SUPPORT_RATE = 0.22;
+// Standard Oracle core factor for x86 (Intel/AMD) processors: 2 physical
+// cores = 1 licensable "Processor". Used only for the perpetual license
+// purchase calc below, not for the hourly OCPU/vCPU compute rates (which
+// use physical cores directly, matching how OCI/Azure meter compute).
+const ORACLE_CORE_FACTOR = 0.5;
+// Published Oracle Database Enterprise Edition perpetual list price per
+// Processor — a long-stable, well-known figure, but not fetched live from
+// anywhere here. Verify against Oracle's current price list; SAM-tool's
+// price list is checked first in case it has a real "Processor"-metric
+// row imported from an actual quote.
+const STATIC_EE_LICENSE_PER_PROCESSOR = 47500;
 
 const AZURE_STATIC_PER_VCPU = 0.063; // Standard Esv5, Linux, PAYG, East US
 // Rough, unverified approximations — confirm against current published
@@ -72,6 +87,8 @@ interface PricingState {
   usedLiveAzure: boolean;
   azureStoragePerGbMonth: number;
   usedLiveAzureStorage: boolean;
+  licensePerProcessor: number;
+  usedSamToolLicense: boolean;
 }
 
 /** Shared parser for OCI DB SKU rows, whichever source they came from —
@@ -105,21 +122,30 @@ function parseOciRates(
   return result;
 }
 
-async function fetchSamToolOciRates(
+async function fetchSamToolPriceRows(
   fetchApi: { fetch: typeof fetch },
   discoveryApi: { getBaseUrl(pluginId: string): Promise<string> },
-): Promise<OciRates> {
+): Promise<{ productName: string; metric: string; listPrice: number }[]> {
   const baseUrl = await discoveryApi.getBaseUrl('sam-pricing');
   const res = await fetchApi.fetch(`${baseUrl}/oracle-list-prices`);
   if (!res.ok) throw new Error(`SAM-tool pricing fetch failed: ${res.status}`);
-  const rows = (await res.json()) as {
-    productName: string;
-    metric: string;
-    listPrice: number;
-  }[];
-  return parseOciRates(
-    rows.map(r => ({ name: r.productName, metric: r.metric, price: r.listPrice })),
-  );
+  return res.json();
+}
+
+/** Perpetual per-Processor license price, if SAM-tool's imported price
+ * list has one for Enterprise Edition — this is a different pricing
+ * dimension entirely from the hourly OCPU rates above. */
+function findLicensePurchasePrice(
+  rows: { productName: string; metric: string; listPrice: number }[],
+): number | undefined {
+  for (const row of rows) {
+    const nameLower = row.productName.toLowerCase();
+    const metricLower = row.metric.toLowerCase();
+    if (metricLower.includes('processor') && nameLower.includes('enterprise edition')) {
+      return row.listPrice;
+    }
+  }
+  return undefined;
 }
 
 async function fetchLiveOciCatalog(proxyBaseUrl: string): Promise<any[]> {
@@ -201,22 +227,35 @@ const OCI_SOURCE_LABEL: Record<OciRateSource, string> = {
   static: 'OCI static fallback',
 };
 
+interface YearPair {
+  yr1: number;
+  yr2Plus: number;
+}
+
+const fmt = (n?: number) =>
+  n === undefined
+    ? '—'
+    : n.toLocaleString('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        maximumFractionDigits: 0,
+      });
+
 /**
- * Shows a live, total-cost-ish annual comparison across On-Premises, OCI,
- * Exadata Cloud@Customer (ExaCC), and Azure (BYOL vs. License Included),
- * based on the CPU cores and storage entered earlier in this step.
+ * Shows a live, Helios-style annual cost comparison across On-Premises,
+ * OCI, Exadata Cloud@Customer (ExaCC), and Azure (BYOL vs. License
+ * Included), split into Year 1 / Year 2+ the same way Helios's Options
+ * Analysis does: BYOL options include a one-time perpetual license
+ * purchase (+ 22% annual support) in Year 1, and just the recurring
+ * support + compute/storage from Year 2 onward. License Included options
+ * are flat every year since there's no separate purchase — it's already
+ * a bundled subscription. All figures are annual (labeled "/yr").
  *
- * OCI/ExaCC rates: Helios/SAM-tool's own imported price list first, then
- * the live public OCI API, then a static fallback. Azure compute + both
- * storage rates: live public Retail Prices API, then static fallback.
- * License math (OCPU/vCPU x hours, Azure's core-factor doubling) is
- * Oracle-specific and gated to dbProduct === 'oracle'.
- *
- * Known gaps, called out in the footer: On-Prem is a single blended
- * managed-service rate (not license-only, so not perfectly apples-to-
- * apples with the license+storage cloud figures); ExaCC excludes its
- * additional infrastructure subscription fee, same as Helios; storage
- * rates are approximated where live parsing isn't available.
+ * OCI/ExaCC hourly rates + the perpetual license price: Helios/SAM-tool's
+ * own imported price list first, then the live public OCI API (hourly
+ * rates only — SAM-tool is the only source checked for the perpetual
+ * license price), then a static fallback. Azure compute + both storage
+ * rates: live public Retail Prices API, then static fallback.
  */
 export const CostComparisonField = ({
   formContext,
@@ -236,6 +275,8 @@ export const CostComparisonField = ({
     usedLiveAzure: false,
     azureStoragePerGbMonth: AZURE_STATIC_STORAGE_PER_GB_MONTH,
     usedLiveAzureStorage: false,
+    licensePerProcessor: STATIC_EE_LICENSE_PER_PROCESSOR,
+    usedSamToolLicense: false,
   });
 
   const allAnswers =
@@ -254,15 +295,25 @@ export const CostComparisonField = ({
 
       let ociRates: OciRates = {};
       let ociSource: OciRateSource = 'static';
+      let licensePerProcessor = STATIC_EE_LICENSE_PER_PROCESSOR;
+      let usedSamToolLicense = false;
 
       try {
-        const samRates = await fetchSamToolOciRates(fetchApi, discoveryApi);
+        const samRows = await fetchSamToolPriceRows(fetchApi, discoveryApi);
+        const samRates = parseOciRates(
+          samRows.map(r => ({ name: r.productName, metric: r.metric, price: r.listPrice })),
+        );
         if (Object.keys(samRates).length > 0) {
           ociRates = samRates;
           ociSource = 'sam-tool';
         }
+        const samLicensePrice = findLicensePurchasePrice(samRows);
+        if (samLicensePrice !== undefined) {
+          licensePerProcessor = samLicensePrice;
+          usedSamToolLicense = true;
+        }
       } catch {
-        // fall through to live OCI API
+        // fall through to live OCI API / static fallback
       }
 
       // Always fetch the live OCI catalog: needed as a rate fallback when
@@ -323,6 +374,8 @@ export const CostComparisonField = ({
           usedLiveAzure,
           azureStoragePerGbMonth,
           usedLiveAzureStorage,
+          licensePerProcessor,
+          usedSamToolLicense,
         });
       }
     })();
@@ -355,51 +408,71 @@ export const CostComparisonField = ({
   const ociStorageAnnual = pricing.ociStoragePerGbMonth * storageGb * 12;
   const azureStorageAnnual = pricing.azureStoragePerGbMonth * storageGb * 12;
 
-  const onpremAnnual = DEFAULT_ONPREM_PER_CORE * cpuCores;
+  // Perpetual license purchase (one-time, Year 1 only) + its 22% annual
+  // support (recurring every year) — shared across every BYOL option,
+  // since BYOL always means "you already bought/are buying the license."
+  const processorCount = cpuCores * ORACLE_CORE_FACTOR;
+  const licensePurchase = pricing.licensePerProcessor * processorCount;
+  const annualSupport = licensePurchase * SUPPORT_RATE;
 
-  const ociByolAnnual = pricing.ociByolRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual;
-  const ociLiAnnual = pricing.ociLiRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual;
+  const byolPair = (recurringAnnual: number): YearPair => ({
+    yr1: licensePurchase + annualSupport + recurringAnnual,
+    yr2Plus: annualSupport + recurringAnnual,
+  });
+  const flatPair = (annual?: number): YearPair | undefined =>
+    annual === undefined ? undefined : { yr1: annual, yr2Plus: annual };
 
-  const exaccByolAnnual =
+  const onpremInfraAnnual = DEFAULT_ONPREM_PER_CORE * cpuCores;
+  const onprem = byolPair(onpremInfraAnnual);
+
+  const ociByol = byolPair(pricing.ociByolRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual);
+  const ociLi = flatPair(pricing.ociLiRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual);
+
+  const exaccByol =
     pricing.ociExaccByolRate !== undefined
-      ? pricing.ociExaccByolRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual
+      ? byolPair(pricing.ociExaccByolRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual)
       : undefined;
-  const exaccLiAnnual =
+  const exaccLi = flatPair(
     pricing.ociExaccLiRate !== undefined
       ? pricing.ociExaccLiRate * cpuCores * HOURS_PER_YEAR + ociStorageAnnual
-      : undefined;
+      : undefined,
+  );
 
-  // Oracle core factor 0.5 on Azure Intel VMs -> 2 vCPUs per physical core.
+  // Oracle core factor 0.5 on Azure Intel VMs -> 2 vCPUs per physical core
+  // (separate from the license-purchase core factor above, which applies
+  // to physical cores directly).
   const azureVcpus = cpuCores * 2;
-  const azureByolAnnual =
-    pricing.azurePerVcpuRate * azureVcpus * HOURS_PER_YEAR + azureStorageAnnual;
+  const azureByol = byolPair(
+    pricing.azurePerVcpuRate * azureVcpus * HOURS_PER_YEAR + azureStorageAnnual,
+  );
   // No independent Azure Licence Included rate is fetched live; Oracle
   // Database@Azure Exadata is OCPU-billed like OCI, so the OCI LI rate is
   // used as a proxy here, same as Helios's static fallback approach.
-  const azureLiAnnual = pricing.ociLiRate * cpuCores * HOURS_PER_YEAR + azureStorageAnnual;
+  const azureLi = flatPair(pricing.ociLiRate * cpuCores * HOURS_PER_YEAR + azureStorageAnnual);
 
-  const fmt = (n?: number) =>
-    n === undefined
-      ? '—'
-      : n.toLocaleString('en-US', {
-          style: 'currency',
-          currency: 'USD',
-          maximumFractionDigits: 0,
-        });
+  const renderCell = (pair?: YearPair) => {
+    if (!pair) return <span>—</span>;
+    return (
+      <div style={{ lineHeight: 1.3 }}>
+        <div>
+          <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>Yr 1: </span>
+          {fmt(pair.yr1)}/yr
+        </div>
+        <div>
+          <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}>Yr 2+: </span>
+          {fmt(pair.yr2Plus)}/yr
+        </div>
+      </div>
+    );
+  };
 
-  // Data sovereignty rules out every cloud/hybrid option regardless of
-  // pricing — don't show them at all, not even as unaffordable options.
   const rows = dataSovereigntyRequired
-    ? [{ label: 'On-Premises', byol: fmt(onpremAnnual), li: '—' }]
+    ? [{ label: 'On-Premises', byol: onprem, li: undefined }]
     : [
-        { label: '1. On-Premises', byol: fmt(onpremAnnual), li: '—' },
-        { label: '2. Oracle Cloud (OCI)', byol: fmt(ociByolAnnual), li: fmt(ociLiAnnual) },
-        {
-          label: '3. Exadata Cloud@Customer (ExaCC)',
-          byol: fmt(exaccByolAnnual),
-          li: fmt(exaccLiAnnual),
-        },
-        { label: '4. Microsoft Azure', byol: fmt(azureByolAnnual), li: fmt(azureLiAnnual) },
+        { label: '1. On-Premises', byol: onprem, li: undefined },
+        { label: '2. Oracle Cloud (OCI)', byol: ociByol, li: ociLi },
+        { label: '3. Exadata Cloud@Customer (ExaCC)', byol: exaccByol, li: exaccLi },
+        { label: '4. Microsoft Azure', byol: azureByol, li: azureLi },
       ];
 
   return (
@@ -412,9 +485,14 @@ export const CostComparisonField = ({
         background: 'rgba(139, 92, 246, 0.06)',
       }}
     >
-      <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>
+      <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
         Estimated Annual Cost ({cpuCores} {cpuCores === 1 ? 'core' : 'cores'}
         {storageGb > 0 ? `, ${storageGb} GB storage` : ''})
+      </div>
+      <div style={{ fontSize: '0.75rem', color: '#64748b', marginBottom: '0.75rem' }}>
+        All figures are annual (/yr), not monthly. Year 1 includes the
+        one-time perpetual license purchase for BYOL options; Year 2+ is
+        the recurring annual cost (support renewal instead of repurchase).
       </div>
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
         <thead>
@@ -429,32 +507,28 @@ export const CostComparisonField = ({
         <tbody>
           {rows.map(row => (
             <tr key={row.label} style={{ borderTop: '1px solid #e2e8f0' }}>
-              <td style={{ padding: '0.5rem' }}>{row.label}</td>
-              <td style={{ padding: '0.5rem', textAlign: 'right' }}>{row.byol}</td>
-              <td style={{ padding: '0.5rem', textAlign: 'right' }}>{row.li}</td>
+              <td style={{ padding: '0.5rem', verticalAlign: 'top' }}>{row.label}</td>
+              <td style={{ padding: '0.5rem', textAlign: 'right' }}>{renderCell(row.byol)}</td>
+              <td style={{ padding: '0.5rem', textAlign: 'right' }}>{renderCell(row.li)}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>
-        {dataSovereigntyRequired ? (
+        License purchase: {pricing.usedSamToolLicense
+          ? "Helios/SAM-tool's imported price list"
+          : 'static approx. — verify against current Oracle price list'}{' '}
+        (${pricing.licensePerProcessor.toLocaleString()}/Processor, {SUPPORT_RATE * 100}%
+        annual support, {ORACLE_CORE_FACTOR} core factor).
+        {!dataSovereigntyRequired && (
           <>
-            On-Prem is a single blended managed-service rate ($
-            {DEFAULT_ONPREM_PER_CORE.toLocaleString()}/core/year — infra,
-            support, and license together).
-          </>
-        ) : (
-          <>
-            OCI/ExaCC: {OCI_SOURCE_LABEL[pricing.ociSource]}. Storage: OCI{' '}
+            {' '}
+            OCI/ExaCC rates: {OCI_SOURCE_LABEL[pricing.ociSource]}. Storage: OCI{' '}
             {pricing.usedLiveOciStorage ? 'live' : 'static approx.'}, Azure{' '}
             {pricing.usedLiveAzureStorage ? 'live' : 'static approx.'}. Azure
-            compute: {pricing.usedLiveAzure ? 'live' : 'static'}. On-Prem is a
-            single blended managed-service rate ($
-            {DEFAULT_ONPREM_PER_CORE.toLocaleString()}/core/year — infra,
-            support, and license together), so it isn't directly
-            apples-to-apples with the license+storage-only cloud figures.
-            ExaCC excludes its additional infrastructure subscription fee.
-            Excludes networking and negotiated discounts.
+            compute: {pricing.usedLiveAzure ? 'live' : 'static'}. ExaCC excludes
+            its additional infrastructure subscription fee. Excludes
+            networking and negotiated discounts.
           </>
         )}
       </div>
