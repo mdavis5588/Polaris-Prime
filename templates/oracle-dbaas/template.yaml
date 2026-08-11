@@ -35,14 +35,16 @@ spec:
               enumNames: ['Yes', 'No']
           required: [shortLived, predictableBaseline]
         ownLicenses:
-          title: Do you have your own licenses?
-          type: string
-          enum: ['yes', 'no']
-          enumNames: ['Yes', 'No']
-          ui:field: BoxedChoice
-          ui:options:
-            boxTitle: Already Owned Licenses
-            columns: 2
+          type: object
+          title: Already Owned Licenses
+          ui:field: MultiChoiceBox
+          properties:
+            hasOwnLicenses:
+              title: Do you have your own licenses?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+          required: [hasOwnLicenses]
         dataExtractions:
           type: object
           title: Data Extraction Requirements
@@ -66,14 +68,16 @@ spec:
           required:
             [downstreamReporting, thirdPartyEgress, crossRegionReplication]
         dataSovereignty:
-          title: Do you have data sovereignty requirements?
-          type: string
-          enum: ['yes', 'no']
-          enumNames: ['Yes', 'No']
-          ui:field: BoxedChoice
-          ui:options:
-            boxTitle: Data Sovereignty Requirement
-            columns: 2
+          type: object
+          title: Data Sovereignty Requirement
+          ui:field: MultiChoiceBox
+          properties:
+            hasDataSovereigntyRequirement:
+              title: Do you have data sovereignty requirements?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+          required: [hasDataSovereigntyRequirement]
 
     - title: Service Type
       required: [supportModel, dbProduct]
