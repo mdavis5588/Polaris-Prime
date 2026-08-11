@@ -39,6 +39,7 @@ export const BoxedChoiceField = ({
         borderRadius: 10,
         padding: '1rem 1.25rem',
         marginBottom: '1.25rem',
+        background: 'rgba(139, 92, 246, 0.06)',
       }}
     >
       {boxTitle && (
@@ -69,7 +70,8 @@ export const BoxedChoiceField = ({
                 padding: '0.75rem 0.5rem',
                 borderRadius: 8,
                 border: `1px solid ${selected ? '#7c3aed' : '#e2e8f0'}`,
-                background: selected ? 'rgba(139,92,246,0.08)' : 'transparent',
+                background: selected ? '#8b5cf6' : '#ffffff',
+                color: selected ? '#ffffff' : 'inherit',
                 fontWeight: selected ? 600 : 400,
                 cursor: 'pointer',
               }}
