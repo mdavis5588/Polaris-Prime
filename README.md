@@ -9,7 +9,7 @@ Infrastructure (OCI), or on Microsoft Azure.
 ## Getting started
 
 ```sh
-cp .env.example .env   # fill in whichever values you need — see below
+cp .env.example .env   # then uncomment + fill in whichever values you need — see below
 yarn install
 yarn start
 ```
@@ -19,6 +19,14 @@ together. `yarn start` automatically loads `.env` (via `dotenv-cli`) before
 starting, so anything you set there is picked up without exporting it
 yourself. `.env` is gitignored — `.env.example` documents every variable
 the config files reference and is the one that's committed.
+
+**Important**: everything in `.env.example` is commented out by default —
+keep it that way for anything you're not using. A variable that's *set to
+an empty string* (`GITHUB_TOKEN=`) is not the same as unset to Backstage:
+an empty string fails config validation for required fields and can take
+the whole backend down (this happened once — see git history if curious).
+A commented-out (truly absent) variable is always safely ignored. Only
+uncomment a line once you have a real value to put after the `=`.
 
 None of the variables in `.env.example` are required just to run the app
 locally with the stock demo config (SQLite, guest auth) — they're only
