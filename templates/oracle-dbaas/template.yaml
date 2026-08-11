@@ -23,13 +23,17 @@ spec:
           type: string
           enum: [fully-managed, self-supported]
           enumNames: ['Fully Managed Service', 'Self-Supported']
-          ui:widget: radio
+          ui:field: BoxedChoice
+          ui:options:
+            orientation: horizontal
         dbProduct:
           title: Database Product
           type: string
           enum: [oracle, sqlserver, mongodb, postgresql]
           enumNames: ['Oracle', 'SQL Server', 'MongoDB', 'PostgreSQL']
-          ui:widget: radio
+          ui:field: BoxedChoice
+          ui:options:
+            orientation: vertical
       dependencies:
         dbProduct:
           oneOf:
