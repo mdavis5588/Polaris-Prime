@@ -3,15 +3,20 @@ import type { Config } from '@backstage/config';
 import { ClientSecretCredential } from '@azure/identity';
 import { ComputeManagementClient } from '@azure/arm-compute';
 import { NetworkManagementClient } from '@azure/arm-network';
-import { resolveTenantConfig } from '../resolveTenant';
+import {
+  resolveClientCloudConfig,
+  resolveTenantTagName,
+} from '../resolveClientCloudConfig';
 
 /**
  * Provisions an Oracle-ready VM on Azure sized per the selection in the
  * oracle-dbaas template, resolving the actual subscription/network/auth
- * config server-side from the selected client + tenant — end users only
- * ever pick a tenant by name, never see the underlying IDs/credentials.
- * The marketplace image reference (which OS/DB image to boot) is shared
- * platform config, not tenant-specific.
+ * config server-side from the selected client — end users never see the
+ * underlying IDs/credentials. The tenant tag is a tracking/cost-
+ * attribution label only; it plays no part in credential resolution and
+ * is applied to the created VM as a resource tag. The marketplace image
+ * reference (which OS/DB image to boot) is shared platform config, not
+ * client-specific.
  *
  * Note: Azure has no native Oracle DBaaS offering (unlike OCI), so this
  * provisions IaaS infrastructure — the actual Oracle software install onto
@@ -26,7 +31,8 @@ export function createAzureVmAction(options: { config: Config }) {
     schema: {
       input: {
         clientCode: z => z.string().describe('Client code'),
-        tenantId: z => z.string().describe('Azure tenant id for this client'),
+        tenantTag: z =>
+          z.string().describe('Tenant tracking tag id for this client'),
         dbName: z => z.string().describe('Database name'),
         oracleVersion: z => z.string().describe('Oracle database version'),
         vmSize: z => z.string().describe('Azure VM size'),
@@ -43,7 +49,7 @@ export function createAzureVmAction(options: { config: Config }) {
     async handler(ctx) {
       const {
         clientCode,
-        tenantId,
+        tenantTag,
         dbName,
         oracleVersion,
         vmSize,
@@ -51,17 +57,18 @@ export function createAzureVmAction(options: { config: Config }) {
         adminPassword,
       } = ctx.input;
 
-      const tenantConfig = resolveTenantConfig(config, clientCode, tenantId, 'azure');
+      const cloudConfig = resolveClientCloudConfig(config, clientCode, 'azure');
+      const tenantTagName = resolveTenantTagName(config, clientCode, tenantTag);
 
-      const subscriptionId = tenantConfig.getString('subscriptionId');
-      const azureTenantId = tenantConfig.getString('tenantId');
-      const clientId = tenantConfig.getString('clientId');
-      const clientSecret = tenantConfig.getString('clientSecret');
-      const resourceGroup = tenantConfig.getString('resourceGroup');
-      const location = tenantConfig.getString('location');
-      const subnetId = tenantConfig.getString('subnetId');
+      const subscriptionId = cloudConfig.getString('subscriptionId');
+      const azureTenantId = cloudConfig.getString('tenantId');
+      const clientId = cloudConfig.getString('clientId');
+      const clientSecret = cloudConfig.getString('clientSecret');
+      const resourceGroup = cloudConfig.getString('resourceGroup');
+      const location = cloudConfig.getString('location');
+      const subnetId = cloudConfig.getString('subnetId');
       const adminUsername =
-        tenantConfig.getOptionalString('adminUsername') ?? 'oracleadmin';
+        cloudConfig.getOptionalString('adminUsername') ?? 'oracleadmin';
 
       const imagePublisher = config.getString('oracleDbaas.azureImage.publisher');
       const imageOffer = config.getString('oracleDbaas.azureImage.offer');
@@ -100,7 +107,7 @@ export function createAzureVmAction(options: { config: Config }) {
       );
 
       ctx.logger.info(
-        `Launching Azure VM "${dbName}" for ${clientCode}/${tenantId} (${vmSize}, Oracle ${oracleVersion}, ${licenseModel})`,
+        `Launching Azure VM "${dbName}" for ${clientCode} (tenant tag: ${tenantTagName}, ${vmSize}, Oracle ${oracleVersion}, ${licenseModel})`,
       );
       const vm = await computeClient.virtualMachines.beginCreateOrUpdateAndWait(
         resourceGroup,
@@ -128,6 +135,8 @@ export function createAzureVmAction(options: { config: Config }) {
             oracleVersion,
             licenseModel,
             managedBy: 'polaris-prime-dbaas',
+            'polaris-prime-client': clientCode,
+            'polaris-prime-tenant': tenantTag,
           },
         },
       );

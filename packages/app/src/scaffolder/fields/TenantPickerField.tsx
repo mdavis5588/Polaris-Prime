@@ -5,36 +5,26 @@ import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api
 interface ClientOption {
   code: string;
   name: string;
-  tenants: { id: string; name: string; target: string }[];
-}
-
-interface TenantPickerUiOptions {
-  /** Which cloud this branch represents — set via ui:options in the
-   * template, since this field lives inside the oci/azure oneOf branch. */
-  target?: 'oci' | 'azure';
+  tenants: { id: string; name: string }[];
 }
 
 /**
- * Lets the user pick which of the selected client's tenants to deploy
- * into, scoped to this branch's cloud (oci/azure) — e.g. a client with
- * both a dev OCI tenancy and a production Azure subscription only sees
- * the OCI one here when target is oci. Fetches the same sanitized list
- * ClientPickerField does; the actual tenancy credentials never leave the
- * backend.
+ * Lets the user pick which of the selected client's tenant tags to
+ * attribute this deployment to. Tenants are tracking/cost-attribution
+ * tags, not cloud accounts — the same tag can end up applied to a mix of
+ * on-prem and cloud resources, so this field is shown once regardless of
+ * deployment target. Fetches the same sanitized list ClientPickerField
+ * does; the actual credentials never leave the backend.
  */
 export const TenantPickerField = ({
   onChange,
   formData,
   formContext,
-  uiSchema,
-}: FieldExtensionComponentProps<string, TenantPickerUiOptions>) => {
+}: FieldExtensionComponentProps<string>) => {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const uiOptions = (uiSchema?.['ui:options'] ?? {}) as TenantPickerUiOptions;
-  const target = uiOptions.target;
 
   const allAnswers =
     (formContext as { formData?: Record<string, any> } | undefined)
@@ -61,7 +51,7 @@ export const TenantPickerField = ({
   }, [discoveryApi, fetchApi]);
 
   const client = clients.find(c => c.code === clientCode);
-  const tenants = (client?.tenants ?? []).filter(t => t.target === target);
+  const tenants = client?.tenants ?? [];
 
   // If the client changed and the previously picked tenant no longer
   // belongs to it, clear the stale selection.
@@ -95,15 +85,18 @@ export const TenantPickerField = ({
   if (tenants.length === 0) {
     return (
       <div style={{ ...boxStyle, color: '#64748b', fontSize: '0.85rem' }}>
-        {client?.name ?? clientCode} has no {target?.toUpperCase()} tenants
-        configured.
+        {client?.name ?? clientCode} has no tenants configured.
       </div>
     );
   }
 
   return (
     <div style={boxStyle}>
-      <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>Tenant</div>
+      <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>Tenant</div>
+      <div style={{ color: '#64748b', fontSize: '0.8rem', marginBottom: '0.75rem' }}>
+        Used to track and attribute cost for this deployment. Applies
+        regardless of where it's deployed.
+      </div>
       <div
         style={{
           display: 'grid',
@@ -132,7 +125,7 @@ export const TenantPickerField = ({
             >
               <input
                 type="radio"
-                name="tenantId"
+                name="tenant"
                 value={tenant.id}
                 checked={selected}
                 onChange={() => onChange(tenant.id)}

@@ -2,13 +2,18 @@ import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import type { Config } from '@backstage/config';
 import * as common from 'oci-common';
 import * as database from 'oci-database';
-import { resolveTenantConfig } from '../resolveTenant';
+import {
+  resolveClientCloudConfig,
+  resolveTenantTagName,
+} from '../resolveClientCloudConfig';
 
 /**
  * Provisions an Oracle DB System on OCI using the values selected in the
  * oracle-dbaas template, resolving the actual tenancy/network/auth config
- * server-side from the selected client + tenant — end users only ever
- * pick a tenant by name, never see the underlying OCIDs/credentials.
+ * server-side from the selected client — end users never see the
+ * underlying OCIDs/credentials. The tenant tag is a tracking/cost-
+ * attribution label only; it plays no part in credential resolution and
+ * is applied to the created DB System as a freeform tag.
  */
 export function createOciDbSystemAction(options: { config: Config }) {
   const { config } = options;
@@ -19,7 +24,8 @@ export function createOciDbSystemAction(options: { config: Config }) {
     schema: {
       input: {
         clientCode: z => z.string().describe('Client code'),
-        tenantId: z => z.string().describe('OCI tenant id for this client'),
+        tenantTag: z =>
+          z.string().describe('Tenant tracking tag id for this client'),
         dbName: z => z.string().describe('Database name'),
         oracleVersion: z => z.string().describe('Oracle database version'),
         shape: z => z.string().describe('OCI DB System shape'),
@@ -36,7 +42,7 @@ export function createOciDbSystemAction(options: { config: Config }) {
     async handler(ctx) {
       const {
         clientCode,
-        tenantId,
+        tenantTag,
         dbName,
         oracleVersion,
         shape,
@@ -44,18 +50,19 @@ export function createOciDbSystemAction(options: { config: Config }) {
         adminPassword,
       } = ctx.input;
 
-      const tenantConfig = resolveTenantConfig(config, clientCode, tenantId, 'oci');
+      const cloudConfig = resolveClientCloudConfig(config, clientCode, 'oci');
+      const tenantTagName = resolveTenantTagName(config, clientCode, tenantTag);
 
-      const region = tenantConfig.getString('region');
-      const tenancy = tenantConfig.getString('tenancyOcid');
-      const user = tenantConfig.getString('userOcid');
-      const fingerprint = tenantConfig.getString('fingerprint');
-      const privateKey = tenantConfig.getString('privateKey');
-      const passphrase = tenantConfig.getOptionalString('passphrase');
-      const compartmentId = tenantConfig.getString('compartmentId');
-      const availabilityDomain = tenantConfig.getString('availabilityDomain');
-      const subnetId = tenantConfig.getString('subnetId');
-      const sshPublicKey = tenantConfig.getString('sshPublicKey');
+      const region = cloudConfig.getString('region');
+      const tenancy = cloudConfig.getString('tenancyOcid');
+      const user = cloudConfig.getString('userOcid');
+      const fingerprint = cloudConfig.getString('fingerprint');
+      const privateKey = cloudConfig.getString('privateKey');
+      const passphrase = cloudConfig.getOptionalString('passphrase');
+      const compartmentId = cloudConfig.getString('compartmentId');
+      const availabilityDomain = cloudConfig.getString('availabilityDomain');
+      const subnetId = cloudConfig.getString('subnetId');
+      const sshPublicKey = cloudConfig.getString('sshPublicKey');
 
       const provider = new common.SimpleAuthenticationDetailsProvider(
         tenancy,
@@ -71,7 +78,7 @@ export function createOciDbSystemAction(options: { config: Config }) {
       });
 
       ctx.logger.info(
-        `Launching OCI DB System "${dbName}" for ${clientCode}/${tenantId} (${shape}, Oracle ${oracleVersion}, ${licenseModel})`,
+        `Launching OCI DB System "${dbName}" for ${clientCode} (tenant tag: ${tenantTagName}, ${shape}, Oracle ${oracleVersion}, ${licenseModel})`,
       );
 
       const response = await client.launchDbSystem({
@@ -95,6 +102,10 @@ export function createOciDbSystemAction(options: { config: Config }) {
               dbName: dbName.substring(0, 8),
               adminPassword,
             },
+          },
+          freeformTags: {
+            'polaris-prime-client': clientCode,
+            'polaris-prime-tenant': tenantTag,
           },
         } as database.models.LaunchDbSystemDetails,
       });

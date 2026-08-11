@@ -4,10 +4,12 @@ import type { Config } from '@backstage/config';
 
 /**
  * Serves a sanitized client/tenant list for the oracle-dbaas template's
- * Client and Tenant pickers — code/name/target only. The actual
- * tenancyOcid/subscriptionId/credentials in oracleDbaas.clients[].tenants[]
- * never leave the backend; they're only read by the scaffolder actions at
- * provisioning time, keyed by the client code + tenant id picked here.
+ * Client and Tenant pickers — code/name only. Tenants here are simple
+ * tracking/cost-attribution tags (not tied to any specific cloud account),
+ * so no 'target' is exposed. The actual OCI/Azure credentials in
+ * oracleDbaas.clients[].oci/azure never leave the backend; they're only
+ * read by the scaffolder actions at provisioning time, keyed by the
+ * client code picked here.
  */
 export async function createRouter({
   config,
@@ -26,7 +28,6 @@ export async function createRouter({
         tenants: (client.getOptionalConfigArray('tenants') ?? []).map(tenant => ({
           id: tenant.getString('id'),
           name: tenant.getString('name'),
-          target: tenant.getString('target'),
         })),
       })),
     );

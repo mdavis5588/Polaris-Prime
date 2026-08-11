@@ -31,11 +31,15 @@ spec:
           required: [hasDataSovereigntyRequirement]
 
     - title: Service Type
-      required: [client, supportModel, dbProduct]
+      required: [client, tenant, supportModel, dbProduct]
       properties:
         client:
           type: string
           ui:field: ClientPicker
+        tenant:
+          title: Tenant
+          type: string
+          ui:field: TenantPicker
         supportModel:
           title: Support Model
           type: string
@@ -151,15 +155,10 @@ spec:
                 target:
                   enum: [onprem]
 
-            # ---- OCI: tenant + license model + DB System shape dropdown ----
+            # ---- OCI: license model + DB System shape dropdown ----
             - properties:
                 target:
                   enum: [oci]
-                tenantId:
-                  type: string
-                  ui:field: TenantPicker
-                  ui:options:
-                    target: oci
                 licenseModel:
                   title: License Model
                   type: string
@@ -177,17 +176,12 @@ spec:
                     - '2 OCPU / 32 GB'
                     - '4 OCPU / 64 GB'
                     - '8 OCPU / 128 GB'
-              required: [tenantId, licenseModel, ociShape]
+              required: [licenseModel, ociShape]
 
-            # ---- Azure: tenant + license model + VM size dropdown ----
+            # ---- Azure: license model + VM size dropdown ----
             - properties:
                 target:
                   enum: [azure]
-                tenantId:
-                  type: string
-                  ui:field: TenantPicker
-                  ui:options:
-                    target: azure
                 licenseModel:
                   title: License Model
                   type: string
@@ -210,7 +204,7 @@ spec:
                     - 'E8s v5 — 8 vCPU / 64 GB'
                     - 'E16s v5 — 16 vCPU / 128 GB'
                     - 'M8ms — 8 vCPU / 218 GB (memory-optimized)'
-              required: [tenantId, licenseModel, azureVmSize]
+              required: [licenseModel, azureVmSize]
 
   steps:
     # ---- Oracle: real provisioning actions, gated to dbProduct === oracle ----
@@ -220,7 +214,7 @@ spec:
       action: oracle:oci:createDbSystem
       input:
         clientCode: ${{ parameters.client }}
-        tenantId: ${{ parameters.tenantId }}
+        tenantTag: ${{ parameters.tenant }}
         dbName: ${{ parameters.dbName }}
         oracleVersion: ${{ parameters.dbVersion }}
         shape: ${{ parameters.ociShape }}
@@ -233,7 +227,7 @@ spec:
       action: oracle:azure:createVm
       input:
         clientCode: ${{ parameters.client }}
-        tenantId: ${{ parameters.tenantId }}
+        tenantTag: ${{ parameters.tenant }}
         dbName: ${{ parameters.dbName }}
         oracleVersion: ${{ parameters.dbVersion }}
         vmSize: ${{ parameters.azureVmSize }}
@@ -245,6 +239,8 @@ spec:
       if: ${{ parameters.target === "onprem" and parameters.dbProduct === "oracle" }}
       action: oracle:onprem:requestProvision
       input:
+        clientCode: ${{ parameters.client }}
+        tenantTag: ${{ parameters.tenant }}
         dbName: ${{ parameters.dbName }}
         oracleVersion: ${{ parameters.dbVersion }}
         cpuCores: ${{ parameters.desiredCpuCores }}
