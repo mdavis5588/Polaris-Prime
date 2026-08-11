@@ -9,14 +9,23 @@ Infrastructure (OCI), or on Microsoft Azure.
 ## Getting started
 
 ```sh
+cp .env.example .env   # fill in whichever values you need — see below
 yarn install
 yarn start
 ```
 
 This starts the frontend (`localhost:3000`) and backend (`localhost:7007`)
-together. See `app-config.yaml` for local defaults (SQLite, guest auth) —
-production deployments should use `app-config.production.yaml` and real
-credentials via environment variables, never committed to this repo.
+together. `yarn start` automatically loads `.env` (via `dotenv-cli`) before
+starting, so anything you set there is picked up without exporting it
+yourself. `.env` is gitignored — `.env.example` documents every variable
+the config files reference and is the one that's committed.
+
+None of the variables in `.env.example` are required just to run the app
+locally with the stock demo config (SQLite, guest auth) — they're only
+needed for the features that use them: GitHub integration, production
+Postgres, OCI/Azure provisioning, and the SAM-tool pricing integration
+below. See `app-config.yaml` for local defaults — production deployments
+should use `app-config.production.yaml`.
 
 ## Database as a Service template
 
@@ -91,8 +100,8 @@ for the exact grants if you want to review or adapt them.
 SAM-tool's Postgres host/port (same VPC, firewall rule, etc.). There's no
 config for this; it's an infrastructure prerequisite.
 
-**3. Set these environment variables** for Polaris Prime's backend
-(`packages/backend`), matching what `app-config.yaml`'s `samTool.database`
+**3. Fill in the SAM-tool section of your `.env`** file (copied from
+`.env.example`), matching what `app-config.yaml`'s `samTool.database`
 section expects:
 
 ```
@@ -103,13 +112,15 @@ SAM_TOOL_DB_READONLY_USER=polaris_readonly
 SAM_TOOL_DB_READONLY_PASSWORD=<the password you set in step 1>
 ```
 
+Restart `yarn start` after editing `.env` — it's only loaded at startup.
 Until these are set, the cost comparison still works — it just falls back
 to the live public OCI API or the static table instead, and says so in the
 footer.
 
-### Other required environment variables
+### Other environment variables
 
-The `oracleDbaas` config section (`app-config.yaml`) also expects OCI and
-Azure service credentials for actual provisioning — see the comments in
-that file for the full list (`OCI_TENANCY_OCID`, `AZURE_CLIENT_SECRET`,
-etc.). None of these are committed; all are `${ENV_VAR}` references.
+`.env.example` documents every other variable the config files reference:
+GitHub integration, production Postgres, and OCI/Azure service credentials
+for actual provisioning (`OCI_TENANCY_OCID`, `AZURE_CLIENT_SECRET`, etc.).
+None of these are committed; `app-config*.yaml` only ever contains
+`${ENV_VAR}` references.

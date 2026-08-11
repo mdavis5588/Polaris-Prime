@@ -42,9 +42,9 @@ catalog:
     - type: file
       target: ./examples/entities.yaml
 
-    # Local example template
+    # Database as a Service template
     - type: file
-      target: ./examples/template/template.yaml
+      target: ./templates/oracle-dbaas/template.yaml
       rules:
         - allow: [Template]
 
