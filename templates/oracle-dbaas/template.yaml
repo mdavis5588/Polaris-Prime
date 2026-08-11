@@ -44,7 +44,12 @@ spec:
               type: string
               enum: ['yes', 'no']
               enumNames: ['Yes', 'No']
-          required: [hasOwnLicenses]
+            needsLicenses:
+              title: Do you need licenses (OpenSource, DEV, TEST)?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+          required: [hasOwnLicenses, needsLicenses]
         dataExtractions:
           type: object
           title: Data Extraction Requirements
