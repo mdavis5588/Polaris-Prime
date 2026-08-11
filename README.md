@@ -40,20 +40,46 @@ should use `app-config.production.yaml`.
 `templates/oracle-dbaas/template.yaml` is the self-service form clients use
 to request a database. It walks through:
 
-1. **Hosting Decision** — workload consistency, licensing, data
-   extraction/sovereignty requirements
-2. **Service Type** — Support Model (Fully Managed / Self-Supported) and
-   Database Product (Oracle, SQL Server, MongoDB, PostgreSQL)
+1. **Hosting Decision** — Data Sovereignty Requirement (the only question
+   here; drives step 4 below)
+2. **Service Type** — Client (which tenant this is for — see below),
+   Support Model (Fully Managed / Self-Supported), and Database Product
+   (Oracle, SQL Server, MongoDB, PostgreSQL)
 3. **Database Configuration** — name and admin password
-4. **Deployment Target** — CPU sizing, a live cost comparison
-   (Oracle only — see below), and On-Premises / OCI / Azure selection.
-   If Data Sovereignty Requirement was answered "yes", this is forced to
-   On-Premises only.
+4. **Deployment Target** — CPU/memory/storage sizing, a live cost
+   comparison (Oracle only — see below), and On-Premises / OCI / Azure
+   selection, with a Tenant picker once a cloud target is chosen. If Data
+   Sovereignty Requirement was answered "yes", target is forced to
+   On-Premises only and no tenant picker is shown.
 
 Only Oracle provisioning is actually automated today
 (`packages/backend/src/modules/oracleDbaas/`) — SQL Server, MongoDB, and
 PostgreSQL are exposed in the form for discoverability but return a
 "not yet automated" result on submission.
+
+## Multi-tenant clients
+
+Different clients can have different cloud tenants — e.g. one client with
+a dev/test OCI tenancy and a separate production Azure subscription. This
+is configured in `app-config.yaml` under `oracleDbaas.clients[].tenants[]`,
+each tenant carrying its own full auth/network config (OCI and Azure
+credentials are inherently tenant-scoped, so there's no single shared
+credential set).
+
+A new `dbaas-tenants` backend plugin
+(`packages/backend/src/plugins/dbaasTenants/`) serves a sanitized version
+of this list — client/tenant **names and IDs only** — to the template's
+Client and Tenant pickers. The actual tenancy OCIDs/subscription
+IDs/credentials never reach the browser; they're resolved server-side
+(`packages/backend/src/modules/oracleDbaas/resolveTenant.ts`) only when a
+provisioning action actually runs, keyed by the client + tenant picked in
+the form.
+
+`app-config.yaml` ships with one example client ("Acme Corp") with one OCI
+tenant and one Azure tenant as a copy-paste starting point — adding
+another client or tenant is a config + env var change only, no code
+changes needed. See the comments above `oracleDbaas.clients` in
+`app-config.yaml` and the matching block in `.env.example`.
 
 ## Cost comparison and the SAM-tool (Helios) pricing integration
 
