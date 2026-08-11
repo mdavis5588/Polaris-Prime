@@ -7,6 +7,9 @@ metadata:
   tags:
     - database
     - oracle
+    - postgresql
+    - sql-server
+    - mongodb
 spec:
   owner: platform-team
   type: database
