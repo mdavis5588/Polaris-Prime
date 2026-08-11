@@ -117,10 +117,14 @@ spec:
           ui:widget: password
 
     - title: Deployment Target
-      required: [desiredCpuCores, desiredStorageGb, target]
+      required: [desiredCpuCores, memoryGb, desiredStorageGb, target]
       properties:
         desiredCpuCores:
           title: How many CPU cores do you need?
+          type: number
+          minimum: 1
+        memoryGb:
+          title: Memory (GB)
           type: number
           minimum: 1
         desiredStorageGb:
@@ -139,15 +143,10 @@ spec:
       dependencies:
         target:
           oneOf:
-            # ---- On-prem: memory only, cores/storage already asked above ----
+            # ---- On-prem: nothing extra, cores/memory/storage already asked above ----
             - properties:
                 target:
                   enum: [onprem]
-                memoryGb:
-                  title: Memory (GB)
-                  type: number
-                  minimum: 1
-              required: [memoryGb]
 
             # ---- OCI: license model + DB System shape dropdown ----
             - properties:
