@@ -76,6 +76,12 @@ proxy:
       target: >-
         https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=serviceName+eq+'Virtual+Machines'+and+armRegionName+eq+'eastus'+and+priceType+eq+'Consumption'+and+contains(skuName,'Esv5')+and+not+contains(skuName,'Windows')+and+not+contains(skuName,'Spot')
       changeOrigin: true
+    # Azure Premium SSD Managed Disk pricing (East US), for storage cost —
+    # separate endpoint since /azure-pricing above is hardcoded to VM SKUs.
+    '/azure-storage-pricing':
+      target: >-
+        https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=serviceName+eq+'Storage'+and+armRegionName+eq+'eastus'+and+priceType+eq+'Consumption'+and+contains(productName,'Premium+SSD+Managed+Disks')+and+not+contains(skuName,'Spot')
+      changeOrigin: true
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

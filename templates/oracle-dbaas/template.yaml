@@ -171,12 +171,16 @@ spec:
           ui:widget: password
 
     - title: Deployment Target
-      required: [desiredCpuCores, target]
+      required: [desiredCpuCores, desiredStorageGb, target]
       properties:
         desiredCpuCores:
           title: How many CPU cores do you need?
           type: number
           minimum: 1
+        desiredStorageGb:
+          title: How much storage do you need (GB)?
+          type: number
+          minimum: 10
         costComparison:
           type: string
           ui:field: CostComparison
@@ -189,7 +193,7 @@ spec:
       dependencies:
         target:
           oneOf:
-            # ---- On-prem: memory/storage only, cores already asked above ----
+            # ---- On-prem: memory only, cores/storage already asked above ----
             - properties:
                 target:
                   enum: [onprem]
@@ -197,11 +201,7 @@ spec:
                   title: Memory (GB)
                   type: number
                   minimum: 1
-                storageGb:
-                  title: Storage (GB)
-                  type: number
-                  minimum: 10
-              required: [memoryGb, storageGb]
+              required: [memoryGb]
 
             # ---- OCI: license model + DB System shape dropdown ----
             - properties:
@@ -287,7 +287,7 @@ spec:
         oracleVersion: ${{ parameters.dbVersion }}
         cpuCores: ${{ parameters.desiredCpuCores }}
         memoryGb: ${{ parameters.memoryGb }}
-        storageGb: ${{ parameters.storageGb }}
+        storageGb: ${{ parameters.desiredStorageGb }}
 
     # ---- Everything else: not automated yet ----
     - id: provision-unsupported-product
