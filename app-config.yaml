@@ -65,6 +65,17 @@ proxy:
   #   '/test':
   #     target: 'https://example.com'
   #     changeOrigin: true
+  endpoints:
+    # Oracle's public OCI Database pricing API (no auth required).
+    '/oci-pricing':
+      target: 'https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD'
+      changeOrigin: true
+    # Azure's public Retail Prices API, filtered to Oracle-relevant Linux VM
+    # SKUs (Esv5 series, East US, pay-as-you-go), no auth required.
+    '/azure-pricing':
+      target: >-
+        https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=serviceName+eq+'Virtual+Machines'+and+armRegionName+eq+'eastus'+and+priceType+eq+'Consumption'+and+contains(skuName,'Esv5')+and+not+contains(skuName,'Windows')+and+not+contains(skuName,'Spot')
+      changeOrigin: true
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs

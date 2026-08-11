@@ -7,6 +7,7 @@ import { BoxedChoiceField } from './BoxedChoiceField';
 import { MultiChoiceBoxField } from './MultiChoiceBoxField';
 import { InfoNoteField } from './InfoNoteField';
 import { DeploymentTargetField } from './DeploymentTargetField';
+import { CostComparisonField } from './CostComparisonField';
 
 const boxedChoiceFormField = FormFieldBlueprint.make({
   name: 'boxed-choice',
@@ -60,6 +61,19 @@ const deploymentTargetFormField = FormFieldBlueprint.make({
   },
 });
 
+const costComparisonFormField = FormFieldBlueprint.make({
+  name: 'cost-comparison',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'CostComparison',
+          component: CostComparisonField,
+        }),
+      ),
+  },
+});
+
 export const scaffolderFieldsModule = createFrontendModule({
   pluginId: 'scaffolder',
   extensions: [
@@ -67,6 +81,7 @@ export const scaffolderFieldsModule = createFrontendModule({
     multiChoiceBoxFormField,
     infoNoteFormField,
     deploymentTargetFormField,
+    costComparisonFormField,
   ],
 });
 

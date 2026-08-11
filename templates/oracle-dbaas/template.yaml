@@ -171,8 +171,15 @@ spec:
           ui:widget: password
 
     - title: Deployment Target
-      required: [target]
+      required: [desiredCpuCores, target]
       properties:
+        desiredCpuCores:
+          title: How many CPU cores do you need?
+          type: number
+          minimum: 1
+        costComparison:
+          type: string
+          ui:field: CostComparison
         target:
           title: Where do you want to deploy?
           type: string
@@ -182,14 +189,10 @@ spec:
       dependencies:
         target:
           oneOf:
-            # ---- On-prem: free-form sizing, no license question ----
+            # ---- On-prem: memory/storage only, cores already asked above ----
             - properties:
                 target:
                   enum: [onprem]
-                cpuCores:
-                  title: CPU Cores
-                  type: number
-                  minimum: 1
                 memoryGb:
                   title: Memory (GB)
                   type: number
@@ -198,7 +201,7 @@ spec:
                   title: Storage (GB)
                   type: number
                   minimum: 10
-              required: [cpuCores, memoryGb, storageGb]
+              required: [memoryGb, storageGb]
 
             # ---- OCI: license model + DB System shape dropdown ----
             - properties:
@@ -282,7 +285,7 @@ spec:
       input:
         dbName: ${{ parameters.dbName }}
         oracleVersion: ${{ parameters.dbVersion }}
-        cpuCores: ${{ parameters.cpuCores }}
+        cpuCores: ${{ parameters.desiredCpuCores }}
         memoryGb: ${{ parameters.memoryGb }}
         storageGb: ${{ parameters.storageGb }}
 
