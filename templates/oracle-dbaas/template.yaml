@@ -15,19 +15,70 @@ spec:
   type: database
 
   parameters:
+    - title: Service Type
+      required: [supportModel, dbProduct]
+      properties:
+        supportModel:
+          title: Support Model
+          type: string
+          enum: [fully-managed, self-supported]
+          enumNames: ['Fully Managed Service', 'Self-Supported']
+          ui:widget: radio
+        dbProduct:
+          title: Database Product
+          type: string
+          enum: [oracle, sqlserver, mongodb, postgresql]
+          enumNames: ['Oracle', 'SQL Server', 'MongoDB', 'PostgreSQL']
+          ui:widget: radio
+      dependencies:
+        dbProduct:
+          oneOf:
+            - properties:
+                dbProduct:
+                  enum: [oracle]
+                dbVersion:
+                  title: Version
+                  type: string
+                  enum: ['23ai', '19c']
+                  enumNames: ['Oracle 23ai (Latest)', 'Oracle 19c (N-1)']
+              required: [dbVersion]
+            - properties:
+                dbProduct:
+                  enum: [sqlserver]
+                dbVersion:
+                  title: Version
+                  type: string
+                  enum: ['2025', '2022']
+                  enumNames:
+                    ['SQL Server 2025 (Latest)', 'SQL Server 2022 (N-1)']
+              required: [dbVersion]
+            - properties:
+                dbProduct:
+                  enum: [mongodb]
+                dbVersion:
+                  title: Version
+                  type: string
+                  enum: ['8.0', '7.0']
+                  enumNames: ['MongoDB 8.0 (Latest)', 'MongoDB 7.0 (N-1)']
+              required: [dbVersion]
+            - properties:
+                dbProduct:
+                  enum: [postgresql]
+                dbVersion:
+                  title: Version
+                  type: string
+                  enum: ['18', '17']
+                  enumNames: ['PostgreSQL 18 (Latest)', 'PostgreSQL 17 (N-1)']
+              required: [dbVersion]
+
     - title: Database Configuration
-      required: [dbName, oracleVersion, dbAdminPassword]
+      required: [dbName, dbAdminPassword]
       properties:
         dbName:
           title: Database Name
           type: string
           description: Name for the new database instance
           pattern: '^[a-zA-Z][a-zA-Z0-9]{0,7}$'
-        oracleVersion:
-          title: Oracle Version
-          type: string
-          enum: ['19c', '21c', '23ai']
-          enumNames: ['Oracle 19c', 'Oracle 21c', 'Oracle 23ai']
         dbAdminPassword:
           title: Admin Password
           type: string
@@ -115,44 +166,56 @@ spec:
               required: [licenseModel, azureVmSize]
 
   steps:
+    # ---- Oracle: real provisioning actions, gated to dbProduct === oracle ----
     - id: provision-oci
       name: Provision Oracle DB System on OCI
-      if: ${{ parameters.target === "oci" }}
+      if: ${{ parameters.target === "oci" and parameters.dbProduct === "oracle" }}
       action: oracle:oci:createDbSystem
       input:
         dbName: ${{ parameters.dbName }}
-        oracleVersion: ${{ parameters.oracleVersion }}
+        oracleVersion: ${{ parameters.dbVersion }}
         shape: ${{ parameters.ociShape }}
         licenseModel: ${{ parameters.licenseModel }}
         adminPassword: ${{ parameters.dbAdminPassword }}
 
     - id: provision-azure
       name: Provision Oracle DB VM on Azure
-      if: ${{ parameters.target === "azure" }}
+      if: ${{ parameters.target === "azure" and parameters.dbProduct === "oracle" }}
       action: oracle:azure:createVm
       input:
         dbName: ${{ parameters.dbName }}
-        oracleVersion: ${{ parameters.oracleVersion }}
+        oracleVersion: ${{ parameters.dbVersion }}
         vmSize: ${{ parameters.azureVmSize }}
         licenseModel: ${{ parameters.licenseModel }}
         adminPassword: ${{ parameters.dbAdminPassword }}
 
     - id: provision-onprem
       name: Request On-Prem Provisioning
-      if: ${{ parameters.target === "onprem" }}
+      if: ${{ parameters.target === "onprem" and parameters.dbProduct === "oracle" }}
       action: oracle:onprem:requestProvision
       input:
         dbName: ${{ parameters.dbName }}
-        oracleVersion: ${{ parameters.oracleVersion }}
+        oracleVersion: ${{ parameters.dbVersion }}
         cpuCores: ${{ parameters.cpuCores }}
         memoryGb: ${{ parameters.memoryGb }}
         storageGb: ${{ parameters.storageGb }}
+
+    # ---- Everything else: not automated yet ----
+    - id: provision-unsupported-product
+      name: Request Provisioning (Not Yet Automated)
+      if: ${{ parameters.dbProduct !== "oracle" }}
+      action: dbaas:unsupportedProduct:requestProvision
+      input:
+        dbName: ${{ parameters.dbName }}
+        dbProduct: ${{ parameters.dbProduct }}
+        dbVersion: ${{ parameters.dbVersion }}
+        target: ${{ parameters.target }}
 
   output:
     links:
       - title: OCI Console
         url: ${{ steps['provision-oci'].output.consoleUrl }}
-        if: ${{ parameters.target === "oci" }}
+        if: ${{ parameters.target === "oci" and parameters.dbProduct === "oracle" }}
       - title: Azure Portal
         url: ${{ steps['provision-azure'].output.consoleUrl }}
-        if: ${{ parameters.target === "azure" }}
+        if: ${{ parameters.target === "azure" and parameters.dbProduct === "oracle" }}

@@ -3,6 +3,7 @@ import { scaffolderActionsExtensionPoint } from '@backstage/plugin-scaffolder-no
 import { createOciDbSystemAction } from './actions/oci';
 import { createAzureVmAction } from './actions/azure';
 import { createOnPremRequestAction } from './actions/onprem';
+import { createUnsupportedProductAction } from './actions/unsupportedProduct';
 
 export const oracleDbaasModule = createBackendModule({
   moduleId: 'oracle-dbaas',
@@ -18,6 +19,7 @@ export const oracleDbaasModule = createBackendModule({
           createOciDbSystemAction({ config }),
           createAzureVmAction({ config }),
           createOnPremRequestAction(),
+          createUnsupportedProductAction(),
         );
       },
     });
