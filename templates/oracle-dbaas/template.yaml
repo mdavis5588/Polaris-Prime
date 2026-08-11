@@ -25,7 +25,7 @@ spec:
           enumNames: ['Fully Managed Service', 'Self-Supported']
           ui:field: BoxedChoice
           ui:options:
-            orientation: horizontal
+            columns: 2
         dbProduct:
           title: Database Product
           type: string
@@ -33,7 +33,7 @@ spec:
           enumNames: ['Oracle', 'SQL Server', 'MongoDB', 'PostgreSQL']
           ui:field: BoxedChoice
           ui:options:
-            orientation: vertical
+            columns: 2
       dependencies:
         dbProduct:
           oneOf:
