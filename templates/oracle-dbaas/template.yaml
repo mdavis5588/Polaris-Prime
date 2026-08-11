@@ -45,6 +45,9 @@ spec:
                   type: string
                   enum: ['23ai', '19c']
                   enumNames: ['Oracle 23ai (Latest)', 'Oracle 19c (N-1)']
+                  ui:field: BoxedChoice
+                  ui:options:
+                    columns: 2
               required: [dbVersion]
             - properties:
                 dbProduct:
@@ -55,6 +58,9 @@ spec:
                   enum: ['2025', '2022']
                   enumNames:
                     ['SQL Server 2025 (Latest)', 'SQL Server 2022 (N-1)']
+                  ui:field: BoxedChoice
+                  ui:options:
+                    columns: 2
               required: [dbVersion]
             - properties:
                 dbProduct:
@@ -64,6 +70,9 @@ spec:
                   type: string
                   enum: ['8.0', '7.0']
                   enumNames: ['MongoDB 8.0 (Latest)', 'MongoDB 7.0 (N-1)']
+                  ui:field: BoxedChoice
+                  ui:options:
+                    columns: 2
               required: [dbVersion]
             - properties:
                 dbProduct:
@@ -73,6 +82,9 @@ spec:
                   type: string
                   enum: ['18', '17']
                   enumNames: ['PostgreSQL 18 (Latest)', 'PostgreSQL 17 (N-1)']
+                  ui:field: BoxedChoice
+                  ui:options:
+                    columns: 2
               required: [dbVersion]
 
     - title: Database Configuration
