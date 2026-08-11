@@ -122,27 +122,34 @@ spec:
                   enumNames: ['Yes', 'No']
                   ui:field: BoxedChoice
                   ui:options:
-                    boxTitle: Licensing
+                    boxTitle: Already Owned Licenses
                     columns: 2
                 dataExtractions:
-                  title: Data Extractions
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      [
-                        downstream-reporting,
-                        third-party-egress,
-                        cross-region-replication,
-                      ]
-                    enumNames:
-                      [
-                        'Downstream reporting',
-                        'Data egress to third-party applications',
-                        'Cross-region replication',
-                      ]
-                  uniqueItems: true
-                  ui:widget: checkboxes
+                  type: object
+                  title: Data Extraction Requirements
+                  ui:field: MultiChoiceBox
+                  properties:
+                    downstreamReporting:
+                      title: Downstream reporting?
+                      type: string
+                      enum: ['yes', 'no']
+                      enumNames: ['Yes', 'No']
+                    thirdPartyEgress:
+                      title: Data egress to third-party applications?
+                      type: string
+                      enum: ['yes', 'no']
+                      enumNames: ['Yes', 'No']
+                    crossRegionReplication:
+                      title: Cross-region replication?
+                      type: string
+                      enum: ['yes', 'no']
+                      enumNames: ['Yes', 'No']
+                  required:
+                    [
+                      downstreamReporting,
+                      thirdPartyEgress,
+                      crossRegionReplication,
+                    ]
                 dataSovereignty:
                   title: Do you have data sovereignty requirements?
                   type: string
@@ -150,9 +157,15 @@ spec:
                   enumNames: ['Yes', 'No']
                   ui:field: BoxedChoice
                   ui:options:
-                    boxTitle: Data Sovereignty
+                    boxTitle: Data Sovereignty Requirement
                     columns: 2
-              required: [workloadConsistency, ownLicenses, dataSovereignty]
+              required:
+                [
+                  workloadConsistency,
+                  ownLicenses,
+                  dataExtractions,
+                  dataSovereignty,
+                ]
 
             # ---- Self-Supported: not applicable, nothing to fill in ----
             - properties:
