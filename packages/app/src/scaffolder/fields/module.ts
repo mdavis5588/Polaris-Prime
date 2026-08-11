@@ -8,6 +8,8 @@ import { MultiChoiceBoxField } from './MultiChoiceBoxField';
 import { InfoNoteField } from './InfoNoteField';
 import { DeploymentTargetField } from './DeploymentTargetField';
 import { CostComparisonField } from './CostComparisonField';
+import { ClientPickerField } from './ClientPickerField';
+import { TenantPickerField } from './TenantPickerField';
 
 const boxedChoiceFormField = FormFieldBlueprint.make({
   name: 'boxed-choice',
@@ -74,6 +76,32 @@ const costComparisonFormField = FormFieldBlueprint.make({
   },
 });
 
+const clientPickerFormField = FormFieldBlueprint.make({
+  name: 'client-picker',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'ClientPicker',
+          component: ClientPickerField,
+        }),
+      ),
+  },
+});
+
+const tenantPickerFormField = FormFieldBlueprint.make({
+  name: 'tenant-picker',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'TenantPicker',
+          component: TenantPickerField,
+        }),
+      ),
+  },
+});
+
 export const scaffolderFieldsModule = createFrontendModule({
   pluginId: 'scaffolder',
   extensions: [
@@ -82,6 +110,8 @@ export const scaffolderFieldsModule = createFrontendModule({
     infoNoteFormField,
     deploymentTargetFormField,
     costComparisonFormField,
+    clientPickerFormField,
+    tenantPickerFormField,
   ],
 });
 

@@ -6,124 +6,162 @@
 export interface Config {
   oracleDbaas?: {
     /**
-     * Oracle Cloud Infrastructure (OCI) provisioning config, used by the
-     * oracle:oci:createDbSystem scaffolder action.
+     * Clients this platform provisions databases for, each with the cloud
+     * tenants they have access to (e.g. a dev/test OCI tenancy and a
+     * separate production Azure subscription). Only code/name/target are
+     * ever exposed to the browser (via the dbaas-tenants backend plugin);
+     * everything else here stays server-side and is only read when a
+     * scaffolder action actually runs against that tenant.
      */
-    oci?: {
+    clients?: {
       /**
-       * OCI region to provision into, e.g. 'us-ashburn-1'.
+       * Short unique client identifier, e.g. 'acme'.
        */
-      region: string;
+      code: string;
       /**
-       * Tenancy OCID used for API authentication.
-       * @visibility secret
+       * Display name shown in the Client picker.
        */
-      tenancyOcid: string;
-      /**
-       * User OCID used for API authentication.
-       * @visibility secret
-       */
-      userOcid: string;
-      /**
-       * API signing key fingerprint.
-       * @visibility secret
-       */
-      fingerprint: string;
-      /**
-       * PEM-encoded API signing private key.
-       * @visibility secret
-       */
-      privateKey: string;
-      /**
-       * Passphrase for the API signing private key, if it's encrypted.
-       * @visibility secret
-       */
-      passphrase?: string;
-      /**
-       * Compartment OCID that new DB Systems are launched into.
-       */
-      compartmentId: string;
-      /**
-       * Availability domain for new DB Systems, e.g. 'Uocm:US-ASHBURN-AD-1'.
-       */
-      availabilityDomain: string;
-      /**
-       * Subnet OCID that new DB Systems are attached to.
-       */
-      subnetId: string;
-      /**
-       * SSH public key installed on new DB Systems.
-       */
-      sshPublicKey: string;
-    };
+      name: string;
+      tenants: {
+        /**
+         * Unique tenant identifier within this client, e.g. 'acme-dev'.
+         */
+        id: string;
+        /**
+         * Display name shown in the Tenant picker.
+         */
+        name: string;
+        /**
+         * Which cloud this tenant is on — determines whether `oci` or
+         * `azure` below is used, and which Deployment Target branch this
+         * tenant appears under.
+         */
+        target: 'oci' | 'azure';
+        /**
+         * OCI tenancy config, used by the oracle:oci:createDbSystem
+         * scaffolder action. Required when target is 'oci'.
+         */
+        oci?: {
+          /**
+           * OCI region to provision into, e.g. 'us-ashburn-1'.
+           */
+          region: string;
+          /**
+           * Tenancy OCID used for API authentication.
+           * @visibility secret
+           */
+          tenancyOcid: string;
+          /**
+           * User OCID used for API authentication.
+           * @visibility secret
+           */
+          userOcid: string;
+          /**
+           * API signing key fingerprint.
+           * @visibility secret
+           */
+          fingerprint: string;
+          /**
+           * PEM-encoded API signing private key.
+           * @visibility secret
+           */
+          privateKey: string;
+          /**
+           * Passphrase for the API signing private key, if it's encrypted.
+           * @visibility secret
+           */
+          passphrase?: string;
+          /**
+           * Compartment OCID that new DB Systems are launched into.
+           */
+          compartmentId: string;
+          /**
+           * Availability domain for new DB Systems, e.g.
+           * 'Uocm:US-ASHBURN-AD-1'.
+           */
+          availabilityDomain: string;
+          /**
+           * Subnet OCID that new DB Systems are attached to.
+           */
+          subnetId: string;
+          /**
+           * SSH public key installed on new DB Systems.
+           */
+          sshPublicKey: string;
+        };
+        /**
+         * Azure subscription/tenant config, used by the
+         * oracle:azure:createVm scaffolder action. Required when target is
+         * 'azure'.
+         */
+        azure?: {
+          /**
+           * Azure subscription ID that VMs are created in.
+           */
+          subscriptionId: string;
+          /**
+           * Azure AD tenant ID used for service authentication.
+           * @visibility secret
+           */
+          tenantId: string;
+          /**
+           * Client (application) ID of the service principal used to
+           * authenticate to Azure.
+           * @visibility secret
+           */
+          clientId: string;
+          /**
+           * Client secret of the service principal used to authenticate to
+           * Azure.
+           * @visibility secret
+           */
+          clientSecret: string;
+          /**
+           * Resource group that new VMs and NICs are created in.
+           */
+          resourceGroup: string;
+          /**
+           * Azure region/location for new VMs, e.g. 'eastus'.
+           */
+          location: string;
+          /**
+           * Resource ID of the subnet new VM NICs are attached to.
+           */
+          subnetId: string;
+          /**
+           * Local admin username created on new VMs.
+           * @default oracleadmin
+           */
+          adminUsername?: string;
+        };
+      }[];
+    }[];
 
     /**
-     * Microsoft Azure provisioning config, used by the
-     * oracle:azure:createVm scaffolder action.
+     * Marketplace image reference for Azure VMs — shared across all Azure
+     * tenants, since it's about which OS/DB image to boot, not
+     * tenant-specific like the auth/network config above.
      */
-    azure?: {
+    azureImage?: {
       /**
-       * Azure subscription ID that VMs are created in.
+       * Marketplace image publisher, e.g. 'Oracle'.
        */
-      subscriptionId: string;
+      publisher: string;
       /**
-       * Azure AD tenant ID used for service authentication.
-       * @visibility secret
+       * Marketplace image offer, e.g. 'oracle-database'.
        */
-      tenantId: string;
+      offer: string;
       /**
-       * Client (application) ID of the service principal used to
-       * authenticate to Azure.
-       * @visibility secret
+       * Fallback SKU used when no version-specific SKU is configured
+       * below.
        */
-      clientId: string;
+      defaultSku: string;
       /**
-       * Client secret of the service principal used to authenticate to
-       * Azure.
-       * @visibility secret
+       * Map of Oracle version (as selected in the template, e.g. '19c')
+       * to the marketplace image SKU to use for that version.
        */
-      clientSecret: string;
-      /**
-       * Resource group that new VMs and NICs are created in.
-       */
-      resourceGroup: string;
-      /**
-       * Azure region/location for new VMs, e.g. 'eastus'.
-       */
-      location: string;
-      /**
-       * Resource ID of the subnet new VM NICs are attached to.
-       */
-      subnetId: string;
-      /**
-       * Local admin username created on new VMs.
-       * @default oracleadmin
-       */
-      adminUsername?: string;
-      /**
-       * Marketplace image reference used as the VM base image.
-       */
-      image: {
-        /**
-         * Marketplace image publisher, e.g. 'Oracle'.
-         */
-        publisher: string;
-        /**
-         * Marketplace image offer, e.g. 'oracle-database'.
-         */
-        offer: string;
-        /**
-         * Fallback SKU used when no version-specific SKU is configured
-         * below.
-         */
-        defaultSku: string;
-        /**
-         * Map of Oracle version (as selected in the template, e.g. '19c')
-         * to the marketplace image SKU to use for that version.
-         */
-        skus?: {
-          [oracleVersion: string]: string;
-        };
+      skus?: {
+        [oracleVersion: string]: string;
       };
     };
   };

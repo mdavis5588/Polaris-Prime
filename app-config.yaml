@@ -166,34 +166,67 @@ mcpActions:
 # (compartment, subnet, service credentials) that the platform team owns.
 # All values are sourced from environment variables; nothing here is a
 # committed secret.
+#
+# Multi-tenant: each client can have multiple cloud tenants (e.g. a
+# dev/test OCI tenancy and a separate production one, or one on OCI and
+# one on Azure). The client + tenant a request is for is picked in the
+# template UI; only client/tenant NAMES and IDs are ever sent to the
+# browser (via the dbaas-tenants backend plugin) — the actual
+# tenancyOcid/subscriptionId/credentials below stay server-side and are
+# only read once a scaffolder action actually runs.
+#
+# Adding a new client or tenant means adding a block here (and the
+# matching env vars) — no code changes needed. Copy the "acme" block below
+# as a starting point.
 oracleDbaas:
-  oci:
-    region: ${OCI_REGION}
-    tenancyOcid: ${OCI_TENANCY_OCID}
-    userOcid: ${OCI_USER_OCID}
-    fingerprint: ${OCI_FINGERPRINT}
-    privateKey: ${OCI_PRIVATE_KEY}
-    # passphrase: ${OCI_PRIVATE_KEY_PASSPHRASE} # only if the key is encrypted
-    compartmentId: ${OCI_COMPARTMENT_ID}
-    availabilityDomain: ${OCI_AVAILABILITY_DOMAIN}
-    subnetId: ${OCI_SUBNET_ID}
-    sshPublicKey: ${OCI_SSH_PUBLIC_KEY}
-  azure:
-    subscriptionId: ${AZURE_SUBSCRIPTION_ID}
-    tenantId: ${AZURE_TENANT_ID}
-    clientId: ${AZURE_CLIENT_ID}
-    clientSecret: ${AZURE_CLIENT_SECRET}
-    resourceGroup: ${AZURE_RESOURCE_GROUP}
-    location: ${AZURE_LOCATION}
-    subnetId: ${AZURE_SUBNET_ID}
-    adminUsername: oracleadmin
-    image:
-      publisher: Oracle
-      offer: oracle-database
-      defaultSku: '19'
-      skus:
-        19c: '19'
-        21c: '21'
+  clients:
+    - code: acme
+      name: Acme Corp
+      tenants:
+        - id: acme-dev
+          name: 'Acme Dev/Test (OCI)'
+          target: oci
+          oci:
+            region: ${ACME_DEV_OCI_REGION}
+            tenancyOcid: ${ACME_DEV_OCI_TENANCY_OCID}
+            userOcid: ${ACME_DEV_OCI_USER_OCID}
+            fingerprint: ${ACME_DEV_OCI_FINGERPRINT}
+            privateKey: ${ACME_DEV_OCI_PRIVATE_KEY}
+            # passphrase: ${ACME_DEV_OCI_PRIVATE_KEY_PASSPHRASE} # only if the key is encrypted
+            compartmentId: ${ACME_DEV_OCI_COMPARTMENT_ID}
+            availabilityDomain: ${ACME_DEV_OCI_AVAILABILITY_DOMAIN}
+            subnetId: ${ACME_DEV_OCI_SUBNET_ID}
+            sshPublicKey: ${ACME_DEV_OCI_SSH_PUBLIC_KEY}
+        - id: acme-prod
+          name: 'Acme Production (Azure)'
+          target: azure
+          azure:
+            subscriptionId: ${ACME_PROD_AZURE_SUBSCRIPTION_ID}
+            tenantId: ${ACME_PROD_AZURE_TENANT_ID}
+            clientId: ${ACME_PROD_AZURE_CLIENT_ID}
+            clientSecret: ${ACME_PROD_AZURE_CLIENT_SECRET}
+            resourceGroup: ${ACME_PROD_AZURE_RESOURCE_GROUP}
+            location: ${ACME_PROD_AZURE_LOCATION}
+            subnetId: ${ACME_PROD_AZURE_SUBNET_ID}
+            adminUsername: oracleadmin
+    # Copy the block above for each additional client, e.g.:
+    # - code: globex
+    #   name: Globex Inc
+    #   tenants:
+    #     - id: globex-main
+    #       name: 'Globex Main (OCI)'
+    #       target: oci
+    #       oci: { ... }
+
+  # Shared across all Azure tenants — which VM image to boot, not
+  # tenant-specific (unlike the auth/network config above).
+  azureImage:
+    publisher: Oracle
+    offer: oracle-database
+    defaultSku: '19'
+    skus:
+      19c: '19'
+      21c: '21'
 
 # Read-only connection to Helios/SAM-tool's Postgres database, used by the
 # sam-pricing backend plugin so the DBaaS cost comparison reflects actual

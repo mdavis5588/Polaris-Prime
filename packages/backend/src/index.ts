@@ -24,6 +24,9 @@ backend.add(import('./modules/oracleDbaas/module'));
 // SAM-tool (Helios) pricing data
 backend.add(import('./plugins/samPricing/plugin'));
 
+// oracle-dbaas client/tenant list
+backend.add(import('./plugins/dbaasTenants/plugin'));
+
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
 

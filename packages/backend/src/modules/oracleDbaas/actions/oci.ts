@@ -2,11 +2,13 @@ import { createTemplateAction } from '@backstage/plugin-scaffolder-node';
 import type { Config } from '@backstage/config';
 import * as common from 'oci-common';
 import * as database from 'oci-database';
+import { resolveTenantConfig } from '../resolveTenant';
 
 /**
  * Provisions an Oracle DB System on OCI using the values selected in the
- * oracle-dbaas template plus platform-level networking/auth config that
- * end users never see (compartment, subnet, AD, service credentials).
+ * oracle-dbaas template, resolving the actual tenancy/network/auth config
+ * server-side from the selected client + tenant — end users only ever
+ * pick a tenant by name, never see the underlying OCIDs/credentials.
  */
 export function createOciDbSystemAction(options: { config: Config }) {
   const { config } = options;
@@ -16,6 +18,8 @@ export function createOciDbSystemAction(options: { config: Config }) {
     description: 'Provisions an Oracle DB System on OCI',
     schema: {
       input: {
+        clientCode: z => z.string().describe('Client code'),
+        tenantId: z => z.string().describe('OCI tenant id for this client'),
         dbName: z => z.string().describe('Database name'),
         oracleVersion: z => z.string().describe('Oracle database version'),
         shape: z => z.string().describe('OCI DB System shape'),
@@ -30,23 +34,28 @@ export function createOciDbSystemAction(options: { config: Config }) {
       },
     },
     async handler(ctx) {
-      const { dbName, oracleVersion, shape, licenseModel, adminPassword } =
-        ctx.input;
+      const {
+        clientCode,
+        tenantId,
+        dbName,
+        oracleVersion,
+        shape,
+        licenseModel,
+        adminPassword,
+      } = ctx.input;
 
-      const region = config.getString('oracleDbaas.oci.region');
-      const tenancy = config.getString('oracleDbaas.oci.tenancyOcid');
-      const user = config.getString('oracleDbaas.oci.userOcid');
-      const fingerprint = config.getString('oracleDbaas.oci.fingerprint');
-      const privateKey = config.getString('oracleDbaas.oci.privateKey');
-      const passphrase = config.getOptionalString(
-        'oracleDbaas.oci.passphrase',
-      );
-      const compartmentId = config.getString('oracleDbaas.oci.compartmentId');
-      const availabilityDomain = config.getString(
-        'oracleDbaas.oci.availabilityDomain',
-      );
-      const subnetId = config.getString('oracleDbaas.oci.subnetId');
-      const sshPublicKey = config.getString('oracleDbaas.oci.sshPublicKey');
+      const tenantConfig = resolveTenantConfig(config, clientCode, tenantId, 'oci');
+
+      const region = tenantConfig.getString('region');
+      const tenancy = tenantConfig.getString('tenancyOcid');
+      const user = tenantConfig.getString('userOcid');
+      const fingerprint = tenantConfig.getString('fingerprint');
+      const privateKey = tenantConfig.getString('privateKey');
+      const passphrase = tenantConfig.getOptionalString('passphrase');
+      const compartmentId = tenantConfig.getString('compartmentId');
+      const availabilityDomain = tenantConfig.getString('availabilityDomain');
+      const subnetId = tenantConfig.getString('subnetId');
+      const sshPublicKey = tenantConfig.getString('sshPublicKey');
 
       const provider = new common.SimpleAuthenticationDetailsProvider(
         tenancy,
@@ -62,7 +71,7 @@ export function createOciDbSystemAction(options: { config: Config }) {
       });
 
       ctx.logger.info(
-        `Launching OCI DB System "${dbName}" (${shape}, Oracle ${oracleVersion}, ${licenseModel})`,
+        `Launching OCI DB System "${dbName}" for ${clientCode}/${tenantId} (${shape}, Oracle ${oracleVersion}, ${licenseModel})`,
       );
 
       const response = await client.launchDbSystem({
