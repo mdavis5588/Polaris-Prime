@@ -244,6 +244,8 @@ export const CostComparisonField = ({
   const dbProduct = allAnswers?.dbProduct as string | undefined;
   const cpuCores = Number(allAnswers?.desiredCpuCores) || 0;
   const storageGb = Number(allAnswers?.desiredStorageGb) || 0;
+  const dataSovereigntyRequired =
+    allAnswers?.dataSovereignty?.hasDataSovereigntyRequirement === 'yes';
 
   useEffect(() => {
     let cancelled = false;
@@ -385,16 +387,20 @@ export const CostComparisonField = ({
           maximumFractionDigits: 0,
         });
 
-  const rows = [
-    { label: '1. On-Premises', byol: fmt(onpremAnnual), li: '—' },
-    { label: '2. Oracle Cloud (OCI)', byol: fmt(ociByolAnnual), li: fmt(ociLiAnnual) },
-    {
-      label: '3. Exadata Cloud@Customer (ExaCC)',
-      byol: fmt(exaccByolAnnual),
-      li: fmt(exaccLiAnnual),
-    },
-    { label: '4. Microsoft Azure', byol: fmt(azureByolAnnual), li: fmt(azureLiAnnual) },
-  ];
+  // Data sovereignty rules out every cloud/hybrid option regardless of
+  // pricing — don't show them at all, not even as unaffordable options.
+  const rows = dataSovereigntyRequired
+    ? [{ label: 'On-Premises', byol: fmt(onpremAnnual), li: '—' }]
+    : [
+        { label: '1. On-Premises', byol: fmt(onpremAnnual), li: '—' },
+        { label: '2. Oracle Cloud (OCI)', byol: fmt(ociByolAnnual), li: fmt(ociLiAnnual) },
+        {
+          label: '3. Exadata Cloud@Customer (ExaCC)',
+          byol: fmt(exaccByolAnnual),
+          li: fmt(exaccLiAnnual),
+        },
+        { label: '4. Microsoft Azure', byol: fmt(azureByolAnnual), li: fmt(azureLiAnnual) },
+      ];
 
   return (
     <div
@@ -431,16 +437,26 @@ export const CostComparisonField = ({
         </tbody>
       </table>
       <div style={{ marginTop: '0.75rem', fontSize: '0.75rem', color: '#64748b' }}>
-        OCI/ExaCC: {OCI_SOURCE_LABEL[pricing.ociSource]}. Storage: OCI{' '}
-        {pricing.usedLiveOciStorage ? 'live' : 'static approx.'}, Azure{' '}
-        {pricing.usedLiveAzureStorage ? 'live' : 'static approx.'}. Azure
-        compute: {pricing.usedLiveAzure ? 'live' : 'static'}. On-Prem is a
-        single blended managed-service rate (
-        ${DEFAULT_ONPREM_PER_CORE.toLocaleString()}/core/year — infra,
-        support, and license together), so it isn't directly apples-to-apples
-        with the license+storage-only cloud figures. ExaCC excludes its
-        additional infrastructure subscription fee. Excludes networking and
-        negotiated discounts.
+        {dataSovereigntyRequired ? (
+          <>
+            On-Prem is a single blended managed-service rate ($
+            {DEFAULT_ONPREM_PER_CORE.toLocaleString()}/core/year — infra,
+            support, and license together).
+          </>
+        ) : (
+          <>
+            OCI/ExaCC: {OCI_SOURCE_LABEL[pricing.ociSource]}. Storage: OCI{' '}
+            {pricing.usedLiveOciStorage ? 'live' : 'static approx.'}, Azure{' '}
+            {pricing.usedLiveAzureStorage ? 'live' : 'static approx.'}. Azure
+            compute: {pricing.usedLiveAzure ? 'live' : 'static'}. On-Prem is a
+            single blended managed-service rate ($
+            {DEFAULT_ONPREM_PER_CORE.toLocaleString()}/core/year — infra,
+            support, and license together), so it isn't directly
+            apples-to-apples with the license+storage-only cloud figures.
+            ExaCC excludes its additional infrastructure subscription fee.
+            Excludes networking and negotiated discounts.
+          </>
+        )}
       </div>
     </div>
   );

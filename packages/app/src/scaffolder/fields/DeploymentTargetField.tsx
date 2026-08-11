@@ -51,37 +51,20 @@ export const DeploymentTargetField = ({
   };
 
   if (dataSovereigntyRequired) {
+    // No choice to present at all — on-prem is the only option, so don't
+    // render a "Where do you want to deploy?" chooser. Just a plain note
+    // explaining why, no box/styling implying a decision was made here.
     const tierName = dbProduct ? FULLY_MANAGED_ONPREM_TIER[dbProduct] : undefined;
     return (
-      <div style={boxStyle}>
-        <div style={{ fontWeight: 600, marginBottom: '0.75rem' }}>
-          Where do you want to deploy?
-        </div>
-        <div
-          style={{
-            padding: '0.75rem 0.5rem',
-            borderRadius: 8,
-            border: '1px solid #7c3aed',
-            background: '#8b5cf6',
-            color: '#ffffff',
-            fontWeight: 600,
-            textAlign: 'center',
-          }}
-        >
-          On-Premises
-        </div>
-        <div
-          style={{ marginTop: '0.75rem', fontSize: '0.85rem', color: '#64748b' }}
-        >
-          Data sovereignty requirements restrict this deployment to
-          on-premises only.
-          {supportModel === 'fully-managed' && tierName && (
-            <>
-              {' '}
-              Fully Managed On-Prem: <strong>{tierName}</strong>.
-            </>
-          )}
-        </div>
+      <div style={{ fontSize: '0.85rem', color: '#64748b', marginBottom: '1.25rem' }}>
+        Deploying On-Premises — required because Data Sovereignty Requirement
+        was answered "Yes."
+        {supportModel === 'fully-managed' && tierName && (
+          <>
+            {' '}
+            Fully Managed On-Prem: <strong>{tierName}</strong>.
+          </>
+        )}
       </div>
     );
   }
