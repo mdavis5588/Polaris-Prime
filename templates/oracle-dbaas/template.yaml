@@ -16,62 +16,8 @@ spec:
 
   parameters:
     - title: Hosting Decision
-      required: [workloadConsistency, ownLicenses, dataExtractions, dataSovereignty]
+      required: [dataSovereignty]
       properties:
-        workloadConsistency:
-          type: object
-          title: Workload Consistency
-          ui:field: MultiChoiceBox
-          properties:
-            shortLived:
-              title: Short-lived workload (2 years or less)?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-            predictableBaseline:
-              title: Predictable workload with consistent baseline?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-          required: [shortLived, predictableBaseline]
-        ownLicenses:
-          type: object
-          title: Already Owned Licenses
-          ui:field: MultiChoiceBox
-          properties:
-            hasOwnLicenses:
-              title: Do you have your own licenses?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-            needsLicenses:
-              title: Do you need licenses (OpenSource, DEV, TEST)?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-          required: [hasOwnLicenses, needsLicenses]
-        dataExtractions:
-          type: object
-          title: Data Extraction Requirements
-          ui:field: MultiChoiceBox
-          properties:
-            downstreamReporting:
-              title: Downstream reporting?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-            thirdPartyEgress:
-              title: Data egress to third-party applications?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-            crossRegionReplication:
-              title: Cross-region replication?
-              type: string
-              enum: ['yes', 'no']
-              enumNames: ['Yes', 'No']
-          required:
-            [downstreamReporting, thirdPartyEgress, crossRegionReplication]
         dataSovereignty:
           type: object
           title: Data Sovereignty Requirement
