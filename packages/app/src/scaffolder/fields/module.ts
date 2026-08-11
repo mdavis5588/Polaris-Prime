@@ -4,6 +4,8 @@ import {
   createFormField,
 } from '@backstage/plugin-scaffolder-react/alpha';
 import { BoxedChoiceField } from './BoxedChoiceField';
+import { MultiChoiceBoxField } from './MultiChoiceBoxField';
+import { InfoNoteField } from './InfoNoteField';
 
 const boxedChoiceFormField = FormFieldBlueprint.make({
   name: 'boxed-choice',
@@ -18,9 +20,35 @@ const boxedChoiceFormField = FormFieldBlueprint.make({
   },
 });
 
+const multiChoiceBoxFormField = FormFieldBlueprint.make({
+  name: 'multi-choice-box',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'MultiChoiceBox',
+          component: MultiChoiceBoxField,
+        }),
+      ),
+  },
+});
+
+const infoNoteFormField = FormFieldBlueprint.make({
+  name: 'info-note',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'InfoNote',
+          component: InfoNoteField,
+        }),
+      ),
+  },
+});
+
 export const scaffolderFieldsModule = createFrontendModule({
   pluginId: 'scaffolder',
-  extensions: [boxedChoiceFormField],
+  extensions: [boxedChoiceFormField, multiChoiceBoxFormField, infoNoteFormField],
 });
 
 export default scaffolderFieldsModule;
