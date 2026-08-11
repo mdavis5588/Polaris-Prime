@@ -2,7 +2,7 @@ apiVersion: scaffolder.backstage.io/v1beta3
 kind: Template
 metadata:
   name: oracle-dbaas
-  title: Oracle Database as a Service
+  title: Database as a Service
   description: >
     Provision an Oracle Database on-premises, on Oracle Cloud Infrastructure
     (OCI), or on Microsoft Azure.
