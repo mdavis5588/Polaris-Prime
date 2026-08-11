@@ -178,6 +178,7 @@ spec:
           type: string
           enum: [onprem, oci, azure]
           enumNames: ['On-Premises', 'Oracle Cloud (OCI)', 'Microsoft Azure']
+          ui:field: DeploymentTarget
       dependencies:
         target:
           oneOf:

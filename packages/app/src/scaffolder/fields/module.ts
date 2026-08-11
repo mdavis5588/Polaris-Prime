@@ -6,6 +6,7 @@ import {
 import { BoxedChoiceField } from './BoxedChoiceField';
 import { MultiChoiceBoxField } from './MultiChoiceBoxField';
 import { InfoNoteField } from './InfoNoteField';
+import { DeploymentTargetField } from './DeploymentTargetField';
 
 const boxedChoiceFormField = FormFieldBlueprint.make({
   name: 'boxed-choice',
@@ -46,9 +47,27 @@ const infoNoteFormField = FormFieldBlueprint.make({
   },
 });
 
+const deploymentTargetFormField = FormFieldBlueprint.make({
+  name: 'deployment-target',
+  params: {
+    field: () =>
+      Promise.resolve(
+        createFormField({
+          name: 'DeploymentTarget',
+          component: DeploymentTargetField,
+        }),
+      ),
+  },
+});
+
 export const scaffolderFieldsModule = createFrontendModule({
   pluginId: 'scaffolder',
-  extensions: [boxedChoiceFormField, multiChoiceBoxFormField, infoNoteFormField],
+  extensions: [
+    boxedChoiceFormField,
+    multiChoiceBoxFormField,
+    infoNoteFormField,
+    deploymentTargetFormField,
+  ],
 });
 
 export default scaffolderFieldsModule;
