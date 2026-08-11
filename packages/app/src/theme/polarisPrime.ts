@@ -4,6 +4,8 @@ import {
   palettes,
 } from '@backstage/theme';
 
+const borderColor = '#e2e8f0';
+
 export const polarisPrimeTheme = createUnifiedTheme({
   ...createBaseThemeOptions({
     palette: {
@@ -20,9 +22,48 @@ export const polarisPrimeTheme = createUnifiedTheme({
         },
       },
       background: {
-        default: '#f4f6f8',
+        default: '#f8fafc',
         paper: '#ffffff',
       },
     },
   }),
+  components: {
+    // Rounded, lightly-bordered cards instead of heavy shadows — matches
+    // Helios's flat card style (border + 10px radius, no drop shadow).
+    MuiPaper: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          border: `1px solid ${borderColor}`,
+        },
+        elevation1: {
+          boxShadow: 'none',
+        },
+      },
+    },
+    MuiCard: {
+      styleOverrides: {
+        root: {
+          borderRadius: 10,
+          border: `1px solid ${borderColor}`,
+          boxShadow: 'none',
+        },
+      },
+    },
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          borderRadius: 8,
+          textTransform: 'none',
+        },
+      },
+    },
+    MuiChip: {
+      styleOverrides: {
+        root: {
+          borderRadius: 20,
+        },
+      },
+    },
+  },
 });
