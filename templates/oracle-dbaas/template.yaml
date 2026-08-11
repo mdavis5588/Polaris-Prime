@@ -15,6 +15,66 @@ spec:
   type: database
 
   parameters:
+    - title: Hosting Decision
+      required: [workloadConsistency, ownLicenses, dataExtractions, dataSovereignty]
+      properties:
+        workloadConsistency:
+          type: object
+          title: Workload Consistency
+          ui:field: MultiChoiceBox
+          properties:
+            shortLived:
+              title: Short-lived workload (2 years or less)?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+            predictableBaseline:
+              title: Predictable workload with consistent baseline?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+          required: [shortLived, predictableBaseline]
+        ownLicenses:
+          title: Do you have your own licenses?
+          type: string
+          enum: ['yes', 'no']
+          enumNames: ['Yes', 'No']
+          ui:field: BoxedChoice
+          ui:options:
+            boxTitle: Already Owned Licenses
+            columns: 2
+        dataExtractions:
+          type: object
+          title: Data Extraction Requirements
+          ui:field: MultiChoiceBox
+          properties:
+            downstreamReporting:
+              title: Downstream reporting?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+            thirdPartyEgress:
+              title: Data egress to third-party applications?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+            crossRegionReplication:
+              title: Cross-region replication?
+              type: string
+              enum: ['yes', 'no']
+              enumNames: ['Yes', 'No']
+          required:
+            [downstreamReporting, thirdPartyEgress, crossRegionReplication]
+        dataSovereignty:
+          title: Do you have data sovereignty requirements?
+          type: string
+          enum: ['yes', 'no']
+          enumNames: ['Yes', 'No']
+          ui:field: BoxedChoice
+          ui:options:
+            boxTitle: Data Sovereignty Requirement
+            columns: 2
+
     - title: Service Type
       required: [supportModel, dbProduct]
       properties:
@@ -86,98 +146,6 @@ spec:
                   ui:options:
                     columns: 2
               required: [dbVersion]
-
-    - title: Hosting Decision
-      properties:
-        supportModel:
-          type: string
-          ui:widget: hidden
-      dependencies:
-        supportModel:
-          oneOf:
-            # ---- Fully Managed: workload, licensing, data questions ----
-            - properties:
-                supportModel:
-                  enum: [fully-managed]
-                workloadConsistency:
-                  type: object
-                  title: Workload Consistency
-                  ui:field: MultiChoiceBox
-                  properties:
-                    shortLived:
-                      title: Short-lived workload (2 years or less)?
-                      type: string
-                      enum: ['yes', 'no']
-                      enumNames: ['Yes', 'No']
-                    predictableBaseline:
-                      title: Predictable workload with consistent baseline?
-                      type: string
-                      enum: ['yes', 'no']
-                      enumNames: ['Yes', 'No']
-                  required: [shortLived, predictableBaseline]
-                ownLicenses:
-                  title: Do you have your own licenses?
-                  type: string
-                  enum: ['yes', 'no']
-                  enumNames: ['Yes', 'No']
-                  ui:field: BoxedChoice
-                  ui:options:
-                    boxTitle: Already Owned Licenses
-                    columns: 2
-                dataExtractions:
-                  type: object
-                  title: Data Extraction Requirements
-                  ui:field: MultiChoiceBox
-                  properties:
-                    downstreamReporting:
-                      title: Downstream reporting?
-                      type: string
-                      enum: ['yes', 'no']
-                      enumNames: ['Yes', 'No']
-                    thirdPartyEgress:
-                      title: Data egress to third-party applications?
-                      type: string
-                      enum: ['yes', 'no']
-                      enumNames: ['Yes', 'No']
-                    crossRegionReplication:
-                      title: Cross-region replication?
-                      type: string
-                      enum: ['yes', 'no']
-                      enumNames: ['Yes', 'No']
-                  required:
-                    [
-                      downstreamReporting,
-                      thirdPartyEgress,
-                      crossRegionReplication,
-                    ]
-                dataSovereignty:
-                  title: Do you have data sovereignty requirements?
-                  type: string
-                  enum: ['yes', 'no']
-                  enumNames: ['Yes', 'No']
-                  ui:field: BoxedChoice
-                  ui:options:
-                    boxTitle: Data Sovereignty Requirement
-                    columns: 2
-              required:
-                [
-                  workloadConsistency,
-                  ownLicenses,
-                  dataExtractions,
-                  dataSovereignty,
-                ]
-
-            # ---- Self-Supported: not applicable, nothing to fill in ----
-            - properties:
-                supportModel:
-                  enum: [self-supported]
-                hostingDecisionNote:
-                  type: string
-                  ui:field: InfoNote
-                  ui:options:
-                    message: >-
-                      Hosting Decision questions apply only to Fully Managed
-                      Service deployments. Click Next to continue.
 
     - title: Database Configuration
       required: [dbName, dbAdminPassword]
