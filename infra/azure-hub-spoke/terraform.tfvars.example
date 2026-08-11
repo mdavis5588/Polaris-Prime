@@ -1,0 +1,39 @@
+# Copy to terraform.tfvars and fill in real values. Don't commit the real
+# file — it holds the VPN shared key. See README.md for how to handle that
+# more safely (a secrets backend / -var on the CLI) instead of a plain file.
+
+prefix             = "orion"
+location           = "eastus"
+hub_address_prefix = "10.100.0.0/24" # Azure-managed hub infra only — never routed to
+
+onprem = {
+  address_cidrs = ["10.0.0.0/24"] # the on-prem flat VLAN
+  link = {
+    name           = "onprem-primary"
+    ip_address     = "203.0.113.10" # your on-prem edge device's public IP
+    provider_name  = "on-prem"
+    speed_in_mbps  = 50
+    bandwidth_mbps = 50
+    shared_key     = "REPLACE_ME" # generate a strong secret; don't leave this literal in the file
+  }
+}
+
+spokes = {
+  # Two tenants that can each reach on-prem and each other, plus one fully
+  # walled-off sandbox that can't reach anything, including the other two.
+  tenant-a = {
+    address_space         = ["10.101.0.0/16"]
+    subnet_address_prefix = "10.101.0.0/24"
+    tier                  = "shared"
+  }
+  tenant-b = {
+    address_space         = ["10.102.0.0/16"]
+    subnet_address_prefix = "10.102.0.0/24"
+    tier                  = "shared"
+  }
+  sandbox = {
+    address_space         = ["10.103.0.0/16"]
+    subnet_address_prefix = "10.103.0.0/24"
+    tier                  = "isolated"
+  }
+}

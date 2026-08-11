@@ -54,3 +54,12 @@ e2e-test-report/
 
 # Cache
 .cache/
+
+# OpenTofu / Terraform (infra/) — .terraform.lock.hcl is intentionally NOT
+# ignored: commit it so everyone applies with the same provider version.
+**/.terraform/
+**/terraform.tfstate
+**/terraform.tfstate.*
+**/terraform.tfvars
+**/*.auto.tfvars
+**/crash.log
