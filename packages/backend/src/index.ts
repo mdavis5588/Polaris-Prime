@@ -31,6 +31,10 @@ backend.add(import('./plugins/samPricing/plugin'));
 // dbaas client/tenant list
 backend.add(import('./plugins/dbaasTenants/plugin'));
 
+// Platform-wide, Azure-AD-group-gated tenant access (hybrid on-prem/Azure
+// service deployment) — see ./plugins/tenants
+backend.add(import('./plugins/tenants/plugin'));
+
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
 
@@ -39,6 +43,13 @@ backend.add(import('@backstage/plugin-auth-backend'));
 // See https://backstage.io/docs/backend-system/building-backends/migrating#the-auth-plugin
 backend.add(import('@backstage/plugin-auth-backend-module-guest-provider'));
 // See https://backstage.io/docs/auth/guest/provider
+
+// Microsoft (Entra ID / Azure AD) sign-in, with a custom resolver — see
+// ./plugins/auth/microsoftSignIn. Kept alongside guest auth so local dev
+// still works without an Azure AD app registration configured; once
+// AZURE_AD_* env vars are set, users can choose Microsoft on the sign-in
+// page to get a real, tenant-gated identity.
+backend.add(import('./plugins/auth/microsoftSignIn'));
 
 // catalog plugin
 backend.add(import('@backstage/plugin-catalog-backend'));

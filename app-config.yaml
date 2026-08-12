@@ -99,6 +99,15 @@ auth:
   providers:
     # See https://backstage.io/docs/auth/guest/provider
     guest: {}
+    ### Microsoft (Entra ID / Azure AD) sign-in — required for real,
+    ### tenant-gated identity (platformTenants below). Uncomment once you
+    ### have an Azure AD app registration; guest auth keeps working
+    ### alongside it either way, so nothing breaks until you do.
+    # microsoft:
+    #   development:
+    #     clientId: ${AZURE_AD_CLIENT_ID}
+    #     clientSecret: ${AZURE_AD_CLIENT_SECRET}
+    #     tenantId: ${AZURE_AD_TENANT_ID}
   # see https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
   # to learn more about client id metadata documents
   clientIdMetadataDocuments:
@@ -235,3 +244,40 @@ samTool:
     user: ${SAM_TOOL_DB_READONLY_USER}
     password: ${SAM_TOOL_DB_READONLY_PASSWORD}
     ssl: true
+
+# Platform-wide, login-scoped tenants for hybrid on-prem/Azure service
+# deployment — distinct from oracleDbaas.clients[].tenants[] above (which
+# is just a DBaaS cost-tracking tag, unauthenticated). Each tenant here
+# maps to an Azure AD security group; a signed-in user's access is
+# rechecked live against Microsoft Graph group membership on every
+# request by the tenants backend plugin. Requires auth.providers.microsoft
+# above to be configured — commented out entirely until it is, so this
+# never partially-loads with missing required fields.
+#
+# platformTenants:
+#   # App registration for app-only Graph group-membership lookups. Needs
+#   # the GroupMember.Read.All (or Directory.Read.All) Graph API
+#   # APPLICATION permission, admin-consented in your Azure AD tenant. Can
+#   # reuse the same app registration as auth.providers.microsoft.
+#   graph:
+#     tenantId: ${AZURE_AD_TENANT_ID}
+#     clientId: ${AZURE_AD_GRAPH_CLIENT_ID}
+#     clientSecret: ${AZURE_AD_GRAPH_CLIENT_SECRET}
+#   tenants:
+#     - adGroupId: ${ACME_TENANT_1_AD_GROUP_ID}
+#       clientCode: acme
+#       tenantId: tenant-1
+#       name: 'Acme Corp — Tenant 1'
+#       onPrem:
+#         resourcePoolId: acme-tenant-1-pool
+#         orchestratorUrl: ${ACME_TENANT_1_ORCHESTRATOR_URL}
+#     - adGroupId: ${ACME_TENANT_2_AD_GROUP_ID}
+#       clientCode: acme
+#       tenantId: tenant-2
+#       name: 'Acme Corp — Tenant 2'
+#       onPrem:
+#         resourcePoolId: acme-tenant-2-pool
+#         orchestratorUrl: ${ACME_TENANT_2_ORCHESTRATOR_URL}
+#       azure:
+#         subscriptionId: ${ACME_TENANT_2_AZURE_SUBSCRIPTION_ID}
+#         resourceGroup: ${ACME_TENANT_2_AZURE_RESOURCE_GROUP}

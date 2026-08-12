@@ -189,4 +189,67 @@ export interface Config {
       ssl?: boolean;
     };
   };
+
+  /**
+   * Platform-wide, login-scoped tenants — the hybrid on-prem/Azure
+   * deployment concept, distinct from oracleDbaas.clients[].tenants[]
+   * (a DBaaS-specific cost-tracking tag list). Each tenant here maps to
+   * an Azure AD security group; a signed-in user's access is resolved by
+   * checking live Microsoft Graph group membership on every request, via
+   * the tenants backend plugin (packages/backend/src/plugins/tenants/).
+   */
+  platformTenants?: {
+    /**
+     * Azure AD app registration used for app-only (client credentials)
+     * Microsoft Graph calls to check group membership. Needs the
+     * GroupMember.Read.All (or Directory.Read.All) Graph API APPLICATION
+     * permission, admin-consented in the Azure AD tenant. Can be the same
+     * app registration as auth.providers.microsoft, or a separate one.
+     */
+    graph: {
+      tenantId: string;
+      clientId: string;
+      /**
+       * @visibility secret
+       */
+      clientSecret: string;
+    };
+    /**
+     * One entry per tenant. adGroupId is the Azure AD security group's
+     * object id — membership in that group is what grants a user access
+     * to this tenant.
+     */
+    tenants: {
+      adGroupId: string;
+      /**
+       * Which client (organization) this tenant belongs to.
+       */
+      clientCode: string;
+      /**
+       * Unique tenant identifier within the client, e.g. 'tenant-1'.
+       */
+      tenantId: string;
+      /**
+       * Display name shown in the tenant switcher.
+       */
+      name: string;
+      /**
+       * On-prem resource pool this tenant can deploy services onto via
+       * the orchestrator API (not yet implemented — see
+       * packages/backend/src/plugins/tenants/router.ts).
+       */
+      onPrem?: {
+        resourcePoolId: string;
+        orchestratorUrl: string;
+      };
+      /**
+       * This tenant's Azure subscription/resource group, if it also
+       * deploys to Azure.
+       */
+      azure?: {
+        subscriptionId: string;
+        resourceGroup: string;
+      };
+    }[];
+  };
 }
