@@ -126,12 +126,6 @@ catalog:
     - type: file
       target: ../../examples/entities.yaml
 
-    # Oracle Database as a Service template
-    - type: file
-      target: ../../templates/oracle-dbaas/template.yaml
-      rules:
-        - allow: [Template]
-
     # Local example organizational data
     - type: file
       target: ../../examples/org.yaml
@@ -161,11 +155,11 @@ mcpActions:
   name: 'My Company Backstage' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
 
-# Platform-level config for the oracle-dbaas scaffolder template. These are
-# NOT exposed to end users in the template form — they're infra defaults
-# (compartment, subnet, service credentials) that the platform team owns.
-# All values are sourced from environment variables; nothing here is a
-# committed secret.
+# Platform-level config for the Database as a Service plugin (the "dbaas"
+# frontend/backend plugins). These are NOT exposed to end users in the
+# wizard — they're infra defaults (compartment, subnet, service credentials)
+# that the platform team owns. All values are sourced from environment
+# variables; nothing here is a committed secret.
 #
 # Each client has ONE cloud account per target (their own OCI tenancy
 # and/or Azure subscription — only client/name are ever sent to the

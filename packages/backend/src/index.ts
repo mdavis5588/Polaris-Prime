@@ -13,18 +13,22 @@ const backend = createBackend();
 backend.add(import('@backstage/plugin-app-backend'));
 backend.add(import('@backstage/plugin-proxy-backend'));
 
-// scaffolder plugin
+// scaffolder plugin (available for future software-component templates;
+// the DBaaS wizard itself is a plain plugin page, not a scaffolder template
+// — see ./plugins/dbaas)
 backend.add(import('@backstage/plugin-scaffolder-backend'));
 backend.add(import('@backstage/plugin-scaffolder-backend-module-github'));
 backend.add(
   import('@backstage/plugin-scaffolder-backend-module-notifications'),
 );
-backend.add(import('./modules/oracleDbaas/module'));
+
+// Database as a Service provisioning (OCI/Azure)
+backend.add(import('./plugins/dbaas/plugin'));
 
 // SAM-tool (Helios) pricing data
 backend.add(import('./plugins/samPricing/plugin'));
 
-// oracle-dbaas client/tenant list
+// dbaas client/tenant list
 backend.add(import('./plugins/dbaasTenants/plugin'));
 
 // techdocs plugin

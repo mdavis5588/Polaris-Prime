@@ -1,7 +1,8 @@
 /**
- * Configuration for the Oracle Database as a Service scaffolder template
- * (templates/oracle-dbaas). These are platform-level defaults — end users
- * never see them in the template form.
+ * Configuration for the Database as a Service plugin
+ * (packages/app/src/plugins/dbaas, packages/backend/src/plugins/dbaas).
+ * These are platform-level defaults — end users never see them in the
+ * wizard.
  */
 export interface Config {
   oracleDbaas?: {

@@ -42,12 +42,6 @@ catalog:
     - type: file
       target: ./examples/entities.yaml
 
-    # Database as a Service template
-    - type: file
-      target: ./templates/oracle-dbaas/template.yaml
-      rules:
-        - allow: [Template]
-
     # Local example organizational data
     - type: file
       target: ./examples/org.yaml

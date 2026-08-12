@@ -5,7 +5,7 @@ import { UnifiedThemeProvider } from '@backstage/theme';
 import catalogPlugin from '@backstage/plugin-catalog/alpha';
 import { navModule } from './modules/nav';
 import { polarisPrimeTheme } from './theme/polarisPrime';
-import { scaffolderFieldsModule } from './scaffolder/fields/module';
+import { dbaasPlugin } from './plugins/dbaas/plugin';
 
 const polarisPrimeThemeExtension = ThemeBlueprint.make({
   name: 'polaris-prime',
@@ -27,5 +27,5 @@ const themeModule = createFrontendModule({
 });
 
 export default createApp({
-  features: [catalogPlugin, navModule, themeModule, scaffolderFieldsModule],
+  features: [catalogPlugin, navModule, themeModule, dbaasPlugin],
 });

@@ -2,9 +2,16 @@
 
 Polaris Prime is an internal developer platform built on
 [Backstage](https://backstage.io), providing a self-service software
-catalog and Database as a Service (DBaaS) template for provisioning Oracle,
+catalog and a Database as a Service (DBaaS) wizard for provisioning Oracle,
 SQL Server, MongoDB, and PostgreSQL databases on-premises, on Oracle Cloud
 Infrastructure (OCI), or on Microsoft Azure.
+
+The DBaaS wizard is a plain Backstage plugin page
+(`packages/app/src/plugins/dbaas/`), not a scaffolder template — full UI
+control (custom multi-step form, live cost comparison) was worth more here
+than the scaffolder's JSON-schema-driven form system. The catalog itself
+still uses Backstage's normal catalog/scaffolder machinery, so nothing
+about that is unusual.
 
 ## Getting started
 
@@ -35,27 +42,35 @@ Postgres, OCI/Azure provisioning, and the SAM-tool pricing integration
 below. See `app-config.yaml` for local defaults — production deployments
 should use `app-config.production.yaml`.
 
-## Database as a Service template
+## Database as a Service wizard
 
-`templates/oracle-dbaas/template.yaml` is the self-service form clients use
-to request a database. It walks through:
+`packages/app/src/plugins/dbaas/DbaasPage.tsx` (mounted at `/dbaas`) is the
+self-service form clients use to request a database — a plain multi-step
+React wizard, each step a normal component holding a slice of shared
+`DbaasWizardState`. It walks through:
 
-1. **Hosting Decision** — Data Sovereignty Requirement (the only question
-   here; drives step 4 below)
-2. **Service Type** — Client and Tenant (which client this is for and
-   which of their tracking tags to attribute it to — see below), Support
-   Model (Fully Managed / Self-Supported), and Database Product (Oracle,
-   SQL Server, MongoDB, PostgreSQL)
-3. **Database Configuration** — name and admin password
-4. **Deployment Target** — CPU/memory/storage sizing, a live cost
-   comparison (Oracle only — see below), and On-Premises / OCI / Azure
-   selection. If Data Sovereignty Requirement was answered "yes", target is
-   forced to On-Premises only.
+1. **Hosting Decision** (`steps/HostingDecisionStep.tsx`) — Data
+   Sovereignty Requirement (the only question here; drives step 4 below)
+2. **Service Type** (`steps/ServiceTypeStep.tsx`) — Client and Tenant
+   (which client this is for and which of their tracking tags to
+   attribute it to — see below), Support Model (Fully Managed /
+   Self-Supported), and Database Product (Oracle, SQL Server, MongoDB,
+   PostgreSQL)
+3. **Database Configuration** (`steps/DatabaseConfigStep.tsx`) — name and
+   admin password
+4. **Deployment Target** (`steps/DeploymentTargetStep.tsx`) — CPU/memory/
+   storage sizing, a live cost comparison (Oracle only — see below), and
+   On-Premises / OCI / Azure selection. If Data Sovereignty Requirement
+   was answered "yes", target is forced to On-Premises only.
 
-Only Oracle provisioning is actually automated today
-(`packages/backend/src/modules/oracleDbaas/`) — SQL Server, MongoDB, and
-PostgreSQL are exposed in the form for discoverability but return a
-"not yet automated" result on submission.
+Submitting the last step calls the `dbaas` backend plugin's `POST
+/provision` route (`packages/backend/src/plugins/dbaas/router.ts`)
+directly — there's no scaffolder action/step machinery involved. Only
+Oracle provisioning is actually automated today
+(`packages/backend/src/plugins/dbaas/provision/`) — SQL Server, MongoDB,
+and PostgreSQL are exposed in the wizard for discoverability but the
+route responds with `automated: false` and logs the request for manual
+follow-up instead of attempting anything.
 
 ## Multi-tenant clients
 
@@ -73,21 +88,21 @@ This is configured in `app-config.yaml` under `oracleDbaas.clients[]`:
 `oci`/`azure` blocks hold that client's one set of cloud credentials, and
 `tenants[]` is just a flat list of `{id, name}` tags.
 
-The Service Type step of the template asks for both Client and Tenant up
-front — the Tenant picker isn't nested inside the OCI/Azure branches of
-Deployment Target, since a tenant tag applies no matter which target gets
-picked later. Every provisioning action (OCI, Azure, and eventually
-on-prem) receives the picked tenant tag and applies it to the resource it
-creates (OCI freeform tags, Azure resource tags) for cost tracking.
+The Service Type step asks for both Client and Tenant up front — the
+Tenant picker isn't nested inside the OCI/Azure branches of Deployment
+Target, since a tenant tag applies no matter which target gets picked
+later. Every provisioning function (OCI, Azure, and eventually on-prem)
+receives the picked tenant tag and applies it to the resource it creates
+(OCI freeform tags, Azure resource tags) for cost tracking.
 
-A new `dbaas-tenants` backend plugin
+A `dbaas-tenants` backend plugin
 (`packages/backend/src/plugins/dbaasTenants/`) serves a sanitized version
-of this list — client/tenant **names and IDs only** — to the template's
-Client and Tenant pickers. The actual tenancy OCIDs/subscription
-IDs/credentials never reach the browser; they're resolved server-side
-(`packages/backend/src/modules/oracleDbaas/resolveClientCloudConfig.ts`)
-only when a provisioning action actually runs, keyed by the client picked
-in the form (tenant tags never factor into credential resolution).
+of this list — client/tenant **names and IDs only** — to the wizard's
+Service Type step. The actual tenancy OCIDs/subscription IDs/credentials
+never reach the browser; they're resolved server-side
+(`packages/backend/src/plugins/dbaas/resolveClientCloudConfig.ts`) only
+when the `/provision` route actually runs, keyed by the client picked in
+the form (tenant tags never factor into credential resolution).
 
 `app-config.yaml` ships with one example client ("Acme Corp") with two
 tenant tags, one OCI account, and one Azure account as a copy-paste

@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
-import { FieldExtensionComponentProps } from '@backstage/plugin-scaffolder-react';
+import { useEffect, useState } from 'react';
 import { useApi, discoveryApiRef, fetchApiRef } from '@backstage/core-plugin-api';
 
 const HOURS_PER_YEAR = 8760;
 // Helios's default managed on-prem rate (adjustable there; fixed here
-// since there's no client-adjustment UI in this template). This is the
+// since there's no client-adjustment UI in this wizard). This is the
 // managed-service/infra fee ONLY — license purchase + support is a
 // separate line below, same split Helios uses.
 const DEFAULT_ONPREM_PER_CORE = 2175.58;
@@ -241,6 +240,13 @@ const fmt = (n?: number) =>
         maximumFractionDigits: 0,
       });
 
+interface CostComparisonProps {
+  dbProduct: string | null;
+  cpuCores: number;
+  storageGb: number;
+  dataSovereigntyRequired: boolean;
+}
+
 /**
  * Shows a live, Helios-style annual cost comparison across On-Premises,
  * OCI, Exadata Cloud@Customer (ExaCC), and Azure (BYOL vs. License
@@ -257,9 +263,12 @@ const fmt = (n?: number) =>
  * license price), then a static fallback. Azure compute + both storage
  * rates: live public Retail Prices API, then static fallback.
  */
-export const CostComparisonField = ({
-  formContext,
-}: FieldExtensionComponentProps<string>) => {
+export const CostComparison = ({
+  dbProduct,
+  cpuCores,
+  storageGb,
+  dataSovereigntyRequired,
+}: CostComparisonProps) => {
   const discoveryApi = useApi(discoveryApiRef);
   const fetchApi = useApi(fetchApiRef);
   const [pricing, setPricing] = useState<PricingState>({
@@ -278,15 +287,6 @@ export const CostComparisonField = ({
     licensePerProcessor: STATIC_EE_LICENSE_PER_PROCESSOR,
     usedSamToolLicense: false,
   });
-
-  const allAnswers =
-    (formContext as { formData?: Record<string, any> } | undefined)
-      ?.formData ?? {};
-  const dbProduct = allAnswers?.dbProduct as string | undefined;
-  const cpuCores = Number(allAnswers?.desiredCpuCores) || 0;
-  const storageGb = Number(allAnswers?.desiredStorageGb) || 0;
-  const dataSovereigntyRequired =
-    allAnswers?.dataSovereignty?.hasDataSovereigntyRequirement === 'yes';
 
   useEffect(() => {
     let cancelled = false;

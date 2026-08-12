@@ -3,8 +3,8 @@ import express from 'express';
 import type { Config } from '@backstage/config';
 
 /**
- * Serves a sanitized client/tenant list for the oracle-dbaas template's
- * Client and Tenant pickers — code/name only. Tenants here are simple
+ * Serves a sanitized client/tenant list for the DBaaS wizard's Service
+ * Type step (Client and Tenant) — code/name only. Tenants here are simple
  * tracking/cost-attribution tags (not tied to any specific cloud account),
  * so no 'target' is exposed. The actual OCI/Azure credentials in
  * oracleDbaas.clients[].oci/azure never leave the backend; they're only
