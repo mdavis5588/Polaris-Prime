@@ -243,12 +243,30 @@ export interface Config {
         orchestratorUrl: string;
       };
       /**
-       * This tenant's Azure subscription/resource group, if it also
-       * deploys to Azure.
+       * This tenant's Azure account, if it also deploys to Azure — used
+       * by the networking plugin (packages/backend/src/plugins/networking/)
+       * to provision real Resource Groups and NSGs via a service
+       * principal scoped to this one subscription.
        */
       azure?: {
         subscriptionId: string;
-        resourceGroup: string;
+        /**
+         * Azure AD tenant ID this service principal authenticates
+         * against. Can be the same tenant as auth.providers.microsoft,
+         * but the service principal itself is separate from that sign-in
+         * app registration.
+         */
+        tenantId: string;
+        clientId: string;
+        /**
+         * @visibility secret
+         */
+        clientSecret: string;
+        /**
+         * Azure region new resource groups/NSGs are created in, e.g.
+         * 'eastus'.
+         */
+        location: string;
       };
     }[];
   };

@@ -679,6 +679,22 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@azure/arm-resources@npm:^8.0.0":
+  version: 8.0.0
+  resolution: "@azure/arm-resources@npm:8.0.0"
+  dependencies:
+    "@azure-rest/core-client": "npm:^2.3.1"
+    "@azure/abort-controller": "npm:^2.1.2"
+    "@azure/core-auth": "npm:^1.9.0"
+    "@azure/core-lro": "npm:^3.1.0"
+    "@azure/core-rest-pipeline": "npm:^1.20.0"
+    "@azure/core-util": "npm:^1.12.0"
+    "@azure/logger": "npm:^1.2.0"
+    tslib: "npm:^2.8.1"
+  checksum: 10c0/f029508c513308cdc413f970b1e2cbb2ff36c1c312214d3840da1b4014db70fef6215bc88df0c6cf5b3feb30a10349904cbffad85154231f56c8298efa5df8c7
+  languageName: node
+  linkType: hard
+
 "@azure/core-auth@npm:^1.10.0, @azure/core-auth@npm:^1.9.0":
   version: 1.11.0
   resolution: "@azure/core-auth@npm:1.11.0"
@@ -13060,6 +13076,7 @@ __metadata:
   dependencies:
     "@azure/arm-compute": "npm:^25.0.0"
     "@azure/arm-network": "npm:^37.0.0"
+    "@azure/arm-resources": "npm:^8.0.0"
     "@azure/identity": "npm:^4.13.1"
     "@backstage/backend-defaults": "npm:^0.17.5"
     "@backstage/backend-plugin-api": "npm:^1.9.3"
@@ -13075,7 +13092,6 @@ __metadata:
     "@backstage/plugin-catalog-backend": "npm:^3.8.1"
     "@backstage/plugin-catalog-backend-module-logs": "npm:^0.1.24"
     "@backstage/plugin-catalog-backend-module-scaffolder-entity-model": "npm:^0.2.22"
-    "@backstage/plugin-catalog-node": "npm:^2.2.3"
     "@backstage/plugin-kubernetes-backend": "npm:^0.21.6"
     "@backstage/plugin-mcp-actions-backend": "npm:^0.2.0"
     "@backstage/plugin-notifications-backend": "npm:^0.6.7"

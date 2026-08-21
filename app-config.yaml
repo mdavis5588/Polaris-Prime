@@ -278,6 +278,12 @@ samTool:
 #       onPrem:
 #         resourcePoolId: acme-tenant-2-pool
 #         orchestratorUrl: ${ACME_TENANT_2_ORCHESTRATOR_URL}
+#       # Service principal for the networking plugin (real Resource
+#       # Groups/NSGs) — separate from the Graph app registration above,
+#       # scoped to just this tenant's own subscription.
 #       azure:
 #         subscriptionId: ${ACME_TENANT_2_AZURE_SUBSCRIPTION_ID}
-#         resourceGroup: ${ACME_TENANT_2_AZURE_RESOURCE_GROUP}
+#         tenantId: ${AZURE_AD_TENANT_ID}
+#         clientId: ${ACME_TENANT_2_AZURE_CLIENT_ID}
+#         clientSecret: ${ACME_TENANT_2_AZURE_CLIENT_SECRET}
+#         location: eastus

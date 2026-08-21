@@ -7,6 +7,7 @@ import { navModule } from './modules/nav';
 import { authModule } from './modules/auth';
 import { polarisPrimeTheme } from './theme/polarisPrime';
 import { dbaasPlugin } from './plugins/dbaas/plugin';
+import { networkingPlugin } from './plugins/networking/plugin';
 
 const polarisPrimeThemeExtension = ThemeBlueprint.make({
   name: 'polaris-prime',
@@ -28,5 +29,5 @@ const themeModule = createFrontendModule({
 });
 
 export default createApp({
-  features: [catalogPlugin, navModule, themeModule, authModule, dbaasPlugin],
+  features: [catalogPlugin, navModule, themeModule, authModule, dbaasPlugin, networkingPlugin],
 });

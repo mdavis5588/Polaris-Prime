@@ -35,6 +35,10 @@ backend.add(import('./plugins/dbaasTenants/plugin'));
 // service deployment) — see ./plugins/tenants
 backend.add(import('./plugins/tenants/plugin'));
 
+// Resource Groups / NSGs — the same model on-prem and Azure — see
+// ./plugins/networking
+backend.add(import('./plugins/networking/plugin'));
+
 // techdocs plugin
 backend.add(import('@backstage/plugin-techdocs-backend'));
 
