@@ -215,6 +215,45 @@ export interface Config {
       clientSecret: string;
     };
     /**
+     * Shared NetBox instance used to provision on-prem networking
+     * (VLANs + IP allocation via NetBox core, NSG-equivalent access
+     * lists via the community netbox-acls plugin) — see
+     * packages/backend/src/plugins/networking/providers/netboxClient.ts.
+     * One NetBox instance serves every on-prem tenant; tenants are
+     * distinguished by their onPrem.netboxSiteId below.
+     */
+    netbox?: {
+      baseUrl: string;
+      /**
+       * @visibility secret
+       */
+      apiToken: string;
+      /**
+       * NetBox VLAN Group id new tenant/resource-group VLANs are
+       * created in.
+       */
+      vlanGroupId: number;
+      /**
+       * VLAN id range new resource groups' VLANs are allocated from.
+       * @default 100
+       */
+      vlanIdRangeStart?: number;
+      /**
+       * @default 999
+       */
+      vlanIdRangeEnd?: number;
+      /**
+       * NetBox prefix (or aggregate) id that new resource groups' /24s
+       * (or whatever prefixLength is set to) are carved out of, via
+       * NetBox's available-prefixes endpoint.
+       */
+      parentPrefixId: number;
+      /**
+       * @default 24
+       */
+      prefixLength?: number;
+    };
+    /**
      * One entry per tenant. adGroupId is the Azure AD security group's
      * object id — membership in that group is what grants a user access
      * to this tenant.
@@ -235,12 +274,21 @@ export interface Config {
       name: string;
       /**
        * On-prem resource pool this tenant can deploy services onto via
-       * the orchestrator API (not yet implemented — see
-       * packages/backend/src/plugins/tenants/router.ts).
+       * the orchestrator API (service deployment itself isn't
+       * implemented yet — see packages/backend/src/plugins/tenants/
+       * router.ts — but the networking side, VLANs/NSG-equivalent
+       * access lists, is real via NetBox — see platformTenants.netbox
+       * below and packages/backend/src/plugins/networking/providers/
+       * onPremProvider.ts).
        */
       onPrem?: {
         resourcePoolId: string;
         orchestratorUrl: string;
+        /**
+         * NetBox site id this tenant's VLANs are scoped to, if using
+         * NetBox for on-prem networking (platformTenants.netbox).
+         */
+        netboxSiteId?: number;
       };
       /**
        * This tenant's Azure account, if it also deploys to Azure — used

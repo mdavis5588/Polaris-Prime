@@ -2,7 +2,12 @@ import Router from 'express-promise-router';
 import express from 'express';
 import type { Config } from '@backstage/config';
 import type { HttpAuthService, UserInfoService } from '@backstage/backend-plugin-api';
-import { getCallerAdObjectId, resolveTenantForCaller, PlatformTenant } from '../tenants/access';
+import {
+  getCallerAdObjectId,
+  resolveTenantForCaller,
+  readNetBoxConfig,
+  PlatformTenant,
+} from '../tenants/access';
 import { NetworkingStore, ResourceGroupRecord } from './store';
 import { createAzureNetworkProvider } from './providers/azureProvider';
 import { createOnPremNetworkProvider } from './providers/onPremProvider';
@@ -16,9 +21,14 @@ function parseTenantKey(tenantKey: string): { clientCode: string; tenantId: stri
   return { clientCode, tenantId };
 }
 
-function getProvider(target: 'azure' | 'onprem', tenant: PlatformTenant): NetworkProvider {
+function getProvider(
+  config: Config,
+  target: 'azure' | 'onprem',
+  tenant: PlatformTenant,
+): NetworkProvider {
   if (target === 'onprem') {
-    return createOnPremNetworkProvider();
+    const siteId = tenant.onPremConfig?.getOptionalNumber('netboxSiteId');
+    return createOnPremNetworkProvider(readNetBoxConfig(config), siteId);
   }
   if (!tenant.azureConfig) {
     throw new Error(`Tenant ${tenant.tenantId} has no azure config`);
@@ -118,7 +128,7 @@ export async function createRouter({
     });
 
     try {
-      const provider = getProvider(target, tenant);
+      const provider = getProvider(config, target, tenant);
       const { externalId } = await provider.createResourceGroup({ name });
       await store.markResourceGroupResult(id, { status: 'active', externalId });
     } catch (err) {
@@ -137,7 +147,7 @@ export async function createRouter({
     }
     const { rg, tenant } = resolved;
     if (rg.external_id) {
-      const provider = getProvider(rg.target, tenant);
+      const provider = getProvider(config, rg.target, tenant);
       await provider.deleteResourceGroup({ externalId: rg.external_id });
     }
     await store.deleteResourceGroup(rg.id);
@@ -170,7 +180,7 @@ export async function createRouter({
 
     const id = await store.createNsg({ resourceGroupId: rg.id, name });
     try {
-      const provider = getProvider(rg.target, tenant);
+      const provider = getProvider(config, rg.target, tenant);
       const { externalId } = await provider.createNsg({
         resourceGroupExternalId: rg.external_id,
         name,
@@ -197,7 +207,7 @@ export async function createRouter({
     }
     const { rg, tenant } = resolved;
     if (nsg.external_id) {
-      const provider = getProvider(rg.target, tenant);
+      const provider = getProvider(config, rg.target, tenant);
       await provider.deleteNsg({ externalId: nsg.external_id });
     }
     await store.deleteNsg(nsg.id);
@@ -240,7 +250,7 @@ export async function createRouter({
 
     const id = await store.createRule({ nsgId: nsg.id, rule });
     try {
-      const provider = getProvider(rg.target, tenant);
+      const provider = getProvider(config, rg.target, tenant);
       await provider.addRule({ nsgExternalId: nsg.external_id, rule });
       await store.markRuleResult(id, { status: 'active' });
     } catch (err) {
@@ -269,7 +279,7 @@ export async function createRouter({
     }
     const { rg, tenant } = resolved;
     if (nsg.external_id && rule.status === 'active') {
-      const provider = getProvider(rg.target, tenant);
+      const provider = getProvider(config, rg.target, tenant);
       await provider.removeRule({ nsgExternalId: nsg.external_id, ruleName: rule.name });
     }
     await store.deleteRule(rule.id);

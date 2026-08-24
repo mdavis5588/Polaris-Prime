@@ -13,6 +13,11 @@ export interface PlatformTenant {
   azureConfig?: Config;
 }
 
+/** Shared NetBox instance config used for all on-prem tenants' networking (see platformTenants.netbox). */
+export function readNetBoxConfig(config: Config): Config | undefined {
+  return config.getOptionalConfig('platformTenants.netbox');
+}
+
 export function readPlatformTenants(config: Config): PlatformTenant[] {
   const entries = config.getOptionalConfigArray('platformTenants.tenants') ?? [];
   return entries.map(entry => ({

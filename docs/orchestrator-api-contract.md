@@ -1,27 +1,36 @@
 # On-prem orchestrator API contract (proposed)
 
-Polaris Prime already has three places waiting on this:
-`packages/backend/src/plugins/dbaas/provision/onprem.ts` (on-prem database
-requests), `packages/backend/src/plugins/tenants/router.ts`
-(`POST /:tenantId/deploy`), and
-`packages/backend/src/plugins/networking/providers/onPremProvider.ts`
-(Resource Groups/NSGs). All three currently throw a fixed "not yet
-implemented" error. This document proposes the minimal surface the
-orchestrator needs to expose for those three to become real, so it's a
-concrete target rather than an open-ended "eventually it does networking."
+**Update:** the networking half of this — Resource Groups, NSGs, and
+rules — is no longer waiting on this document. `onPremProvider.ts` now
+provisions real VLANs and IP allocation via NetBox core, and
+NSG-equivalent access lists via the community `netbox-acls` plugin (see
+`packages/backend/src/plugins/networking/providers/netboxClient.ts`).
+NetBox is IPAM/DCIM — a system of record, not a device controller —
+so actually pushing a new VLAN/ACL onto physical switches is still a
+separate step, typically a NetBox webhook triggering an Ansible/Nornir
+job against your specific switch vendor. That piece isn't built here
+since it depends on hardware this session has no visibility into.
+
+What's still fully blocked on this document: **service deployment**
+on-prem. `packages/backend/src/plugins/dbaas/provision/onprem.ts` and
+`packages/backend/src/plugins/networking/providers/
+onPremDeploymentProvider.ts` both still throw "not yet implemented" —
+NetBox has no concept of compute, so deploying a VM/container/whatever
+onto a tenant's VLAN needs an actual hypervisor or orchestrator
+integration (vSphere, Proxmox, bare-metal PXE, a real orchestrator API),
+which is what the rest of this document proposes a contract for.
 
 Nothing here is final — it's a starting point for whoever builds or
-integrates the orchestrator to react to, adjust, and confirm.
+integrates that orchestrator to react to, adjust, and confirm.
 
 ## Why this shape
 
-Polaris's canonical model (see `packages/backend/src/plugins/networking/`)
-is deliberately close to Azure's Resource Group / NSG shape, since that's
-the model the hybrid IDP presents to users regardless of target. The
-orchestrator doesn't need to *be* Azure-like internally — it just needs to
-expose enough for Polaris to translate its own canonical objects into
-whatever the orchestrator actually manages (VLANs, a firewall vendor API,
-NSX, iptables, etc.).
+Networking (Resource Groups/VLANs, NSGs/access lists) is handled by
+NetBox now, so this document is scoped down to just what's still
+missing: turning a tenant's on-prem VLAN into somewhere a service
+actually runs. The orchestrator doesn't need to know anything about
+NetBox — Polaris resolves a resource group's VLAN/subnet itself and can
+pass that along in the deployment request below.
 
 ## Authentication
 
@@ -36,69 +45,24 @@ never committed).
 Every call is scoped to a **resource pool id** — the
 `platformTenants.tenants[].onPrem.resourcePoolId` value already in config.
 The orchestrator decides what a "pool" maps to internally (a cluster, a
-set of hosts, a VLAN range); Polaris just passes the id through.
+set of hosts, hypervisor capacity); Polaris just passes the id through.
+This is a separate concept from `onPrem.netboxSiteId`, which scopes
+*networking* (VLANs) — a resource pool is about compute capacity.
 
-## Minimal endpoints
-
-### Resource groups (logical grouping / lifecycle scope)
-
-```
-POST   /pools/{poolId}/resource-groups
-       { "name": string }
-       -> 201 { "id": string }
-
-DELETE /pools/{poolId}/resource-groups/{id}
-       -> 204
-```
-
-A resource group id from this API becomes the `external_id` Polaris
-stores for an on-prem `resource_groups` row, mirroring how an Azure ARM
-resource group id is stored today.
-
-### Network security groups + rules
-
-```
-POST   /pools/{poolId}/resource-groups/{rgId}/nsgs
-       { "name": string }
-       -> 201 { "id": string }
-
-DELETE /pools/{poolId}/resource-groups/{rgId}/nsgs/{id}
-       -> 204
-
-POST   /pools/{poolId}/resource-groups/{rgId}/nsgs/{nsgId}/rules
-       {
-         "name": string,
-         "priority": number,
-         "direction": "inbound" | "outbound",
-         "access": "allow" | "deny",
-         "protocol": "tcp" | "udp" | "*",
-         "sourceAddressPrefix": string,
-         "sourcePortRange": string,
-         "destinationAddressPrefix": string,
-         "destinationPortRange": string
-       }
-       -> 201 { "id": string }
-
-DELETE /pools/{poolId}/resource-groups/{rgId}/nsgs/{nsgId}/rules/{ruleName}
-       -> 204
-```
-
-This is exactly the shape `NetworkProvider` in
-`packages/backend/src/plugins/networking/providers/types.ts` already
-expects — an `OnPremNetworkProvider` implementing it against this API
-is a small, mechanical piece of work once the API exists.
+## Minimal endpoint
 
 ### Service deployment
 
 ```
-POST /pools/{poolId}/resource-groups/{rgId}/deployments
+POST /pools/{poolId}/deployments
      {
        "name": string,
        "image": string,          // or whatever identifies the workload
        "cpuCores": number,
        "memoryGb": number,
        "storageGb": number,
-       "nsgId": string            // which NSG's rules apply
+       "vlanId": number,          // the NetBox VLAN id to attach to
+       "subnetCidr": string       // the prefix NetBox allocated for it
      }
      -> 202 { "deploymentId": string, "status": "pending" }
 
@@ -109,19 +73,23 @@ GET  /pools/{poolId}/deployments/{deploymentId}
 Async by design — `POST` accepts the request and returns an id; Polaris
 polls (or the orchestrator later gets a webhook/callback added) rather
 than blocking a request on real infrastructure provisioning, which is
-likely to take longer than an HTTP request should.
+likely to take longer than an HTTP request should. This is the same
+shape `DeploymentProvider` in
+`packages/backend/src/plugins/networking/providers/deploymentTypes.ts`
+already expects — an `OnPremDeploymentProvider` implementing it against
+this API is a small, mechanical piece of work once it exists.
 
 ## What's deliberately left open
 
-- Whether resource groups/NSGs on the orchestrator side are truly
-  separate objects, or whether "resource group" is just a naming
-  convention Polaris applies to a set of NSG/deployment objects that
-  don't have their own explicit container on the orchestrator. Either
-  works — Polaris only needs *an* id back to store as `external_id`.
-- Whether rule enforcement is synchronous (returns once applied) or
-  eventually-consistent (returns once accepted). Polaris's current
-  `pending → active/failed` status model on each row already
+- Whether rule/deployment provisioning is synchronous (returns once
+  applied) or eventually-consistent (returns once accepted). Polaris's
+  current `pending → active/failed` status model on each row already
   accommodates either.
+- How NSG-equivalent access-list enforcement actually reaches the
+  deployed workload (applied at the VLAN/switch level via the NetBox
+  webhook → Ansible path, vs. something the orchestrator itself
+  enforces per-VM). Whichever it is, Polaris doesn't need to know —
+  it's already writing the rules to NetBox regardless.
 - Bulk/batch operations — not included here since Polaris's UI creates
-  one object at a time; can be added later as an optimization without
-  changing the shape above.
+  one deployment at a time; can be added later without changing the
+  shape above.
