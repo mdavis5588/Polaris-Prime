@@ -6,7 +6,10 @@ import { getCallerAdObjectId, resolveTenantForCaller, PlatformTenant } from '../
 import { NetworkingStore, ResourceGroupRecord } from './store';
 import { createAzureNetworkProvider } from './providers/azureProvider';
 import { createOnPremNetworkProvider } from './providers/onPremProvider';
+import { createAzureDeploymentProvider } from './providers/azureDeploymentProvider';
+import { createOnPremDeploymentProvider } from './providers/onPremDeploymentProvider';
 import type { NetworkProvider, RuleSpec } from './providers/types';
+import type { DeploymentProvider, DeploymentSpec } from './providers/deploymentTypes';
 
 function parseTenantKey(tenantKey: string): { clientCode: string; tenantId: string } {
   const [clientCode, tenantId] = tenantKey.split(':');
@@ -21,6 +24,16 @@ function getProvider(target: 'azure' | 'onprem', tenant: PlatformTenant): Networ
     throw new Error(`Tenant ${tenant.tenantId} has no azure config`);
   }
   return createAzureNetworkProvider(tenant.azureConfig);
+}
+
+function getDeploymentProvider(target: 'azure' | 'onprem', tenant: PlatformTenant): DeploymentProvider {
+  if (target === 'onprem') {
+    return createOnPremDeploymentProvider();
+  }
+  if (!tenant.azureConfig) {
+    throw new Error(`Tenant ${tenant.tenantId} has no azure config`);
+  }
+  return createAzureDeploymentProvider(tenant.azureConfig);
 }
 
 /**
@@ -260,6 +273,89 @@ export async function createRouter({
       await provider.removeRule({ nsgExternalId: nsg.external_id, ruleName: rule.name });
     }
     await store.deleteRule(rule.id);
+    res.status(204).end();
+  });
+
+  // --- Service deployments ---
+
+  router.get('/resource-groups/:id/deployments', async (req, res) => {
+    const resolved = await requireResourceGroup(req, req.params.id);
+    if (!resolved) {
+      res.status(403).json({ error: 'You do not have access to this resource group' });
+      return;
+    }
+    res.json(await store.listDeployments(resolved.rg.id));
+  });
+
+  router.post('/resource-groups/:id/deployments', async (req, res) => {
+    const resolved = await requireResourceGroup(req, req.params.id);
+    if (!resolved) {
+      res.status(403).json({ error: 'You do not have access to this resource group' });
+      return;
+    }
+    const { rg, tenant } = resolved;
+    if (rg.status !== 'active' || !rg.external_id) {
+      res.status(409).json({ error: 'Resource group is not active yet' });
+      return;
+    }
+    const { name, vmSize, adminUsername, adminPassword, nsgId } = req.body as DeploymentSpec & {
+      nsgId?: string;
+    };
+
+    let nsgExternalId: string | undefined;
+    if (nsgId) {
+      const nsg = await store.getNsg(nsgId);
+      if (!nsg || nsg.resource_group_id !== rg.id) {
+        res.status(400).json({ error: 'NSG does not belong to this resource group' });
+        return;
+      }
+      if (nsg.status !== 'active' || !nsg.external_id) {
+        res.status(409).json({ error: 'NSG is not active yet' });
+        return;
+      }
+      nsgExternalId = nsg.external_id;
+    }
+
+    const spec: DeploymentSpec = { name, vmSize, adminUsername, adminPassword, nsgExternalId };
+    const id = await store.createDeployment({ resourceGroupId: rg.id, nsgId, spec });
+
+    try {
+      const provider = getDeploymentProvider(rg.target, tenant);
+      const { externalId, consoleUrl } = await provider.createDeployment({
+        resourceGroupExternalId: rg.external_id,
+        spec,
+      });
+      await store.markDeploymentResult(id, { status: 'active', externalId, consoleUrl });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      await store.markDeploymentResult(id, { status: 'failed', error: message });
+    }
+
+    const record = await store.getDeployment(id);
+    // Never echo the admin password back, even though it was never stored.
+    res.status(201).json(record);
+  });
+
+  router.delete('/deployments/:id', async (req, res) => {
+    const deployment = await store.getDeployment(req.params.id);
+    if (!deployment) {
+      res.status(404).json({ error: 'Not found' });
+      return;
+    }
+    const resolved = await requireResourceGroup(req, deployment.resource_group_id);
+    if (!resolved) {
+      res.status(403).json({ error: 'You do not have access to this deployment' });
+      return;
+    }
+    const { rg, tenant } = resolved;
+    if (deployment.external_id && rg.external_id) {
+      const provider = getDeploymentProvider(rg.target, tenant);
+      await provider.deleteDeployment({
+        resourceGroupExternalId: rg.external_id,
+        externalId: deployment.external_id,
+      });
+    }
+    await store.deleteDeployment(deployment.id);
     res.status(204).end();
   });
 

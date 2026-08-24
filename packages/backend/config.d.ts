@@ -263,10 +263,15 @@ export interface Config {
          */
         clientSecret: string;
         /**
-         * Azure region new resource groups/NSGs are created in, e.g.
-         * 'eastus'.
+         * Azure region new resource groups/NSGs/deployments are created
+         * in, e.g. 'eastus'.
          */
         location: string;
+        /**
+         * Subnet new service deployments' network interfaces are
+         * attached to.
+         */
+        subnetId: string;
       };
     }[];
   };

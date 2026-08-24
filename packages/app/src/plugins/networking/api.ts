@@ -1,5 +1,13 @@
 import type { DiscoveryApi, FetchApi } from '@backstage/core-plugin-api';
-import type { ResourceGroup, Nsg, NsgRule, RuleInput, DeployTarget } from './types';
+import type {
+  ResourceGroup,
+  Nsg,
+  NsgRule,
+  RuleInput,
+  DeployTarget,
+  ServiceDeployment,
+  DeploymentInput,
+} from './types';
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -86,5 +94,33 @@ export class NetworkingApi {
     const base = await this.baseUrl();
     const res = await this.fetchApi.fetch(`${base}/rules/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error(`Failed to delete rule: ${res.status}`);
+  }
+
+  async listDeployments(resourceGroupId: string): Promise<ServiceDeployment[]> {
+    const base = await this.baseUrl();
+    const res = await this.fetchApi.fetch(`${base}/resource-groups/${resourceGroupId}/deployments`);
+    return json(res);
+  }
+
+  async createDeployment(
+    resourceGroupId: string,
+    input: DeploymentInput,
+  ): Promise<ServiceDeployment> {
+    const base = await this.baseUrl();
+    const res = await this.fetchApi.fetch(
+      `${base}/resource-groups/${resourceGroupId}/deployments`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(input),
+      },
+    );
+    return json(res);
+  }
+
+  async deleteDeployment(id: string): Promise<void> {
+    const base = await this.baseUrl();
+    const res = await this.fetchApi.fetch(`${base}/deployments/${id}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`Failed to delete deployment: ${res.status}`);
   }
 }

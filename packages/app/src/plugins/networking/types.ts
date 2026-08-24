@@ -55,3 +55,25 @@ export interface RuleInput {
   destinationAddressPrefix: string;
   destinationPortRange: string;
 }
+
+export interface ServiceDeployment {
+  id: string;
+  resource_group_id: string;
+  nsg_id: string | null;
+  name: string;
+  vm_size: string;
+  admin_username: string;
+  external_id: string | null;
+  console_url: string | null;
+  status: ProvisionStatus;
+  error: string | null;
+  created_at: string;
+}
+
+export interface DeploymentInput {
+  name: string;
+  vmSize: string;
+  adminUsername: string;
+  adminPassword: string;
+  nsgId?: string;
+}

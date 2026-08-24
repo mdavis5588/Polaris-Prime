@@ -17,7 +17,15 @@ import IconButton from '@material-ui/core/IconButton';
 import DeleteIcon from '@material-ui/icons/Delete';
 import { useTenant } from '../tenantSwitcher/TenantContext';
 import { NetworkingApi } from './api';
-import type { ResourceGroup, Nsg, NsgRule, RuleInput, DeployTarget } from './types';
+import type {
+  ResourceGroup,
+  Nsg,
+  NsgRule,
+  RuleInput,
+  DeployTarget,
+  ServiceDeployment,
+  DeploymentInput,
+} from './types';
 
 const STATUS_COLOR: Record<string, string> = {
   active: '#16a34a',
@@ -85,6 +93,18 @@ export const NetworkingPage = () => {
   const [creatingNsg, setCreatingNsg] = useState(false);
   const [nsgError, setNsgError] = useState<string | null>(null);
 
+  const [deployments, setDeployments] = useState<ServiceDeployment[]>([]);
+  const [loadingDeployments, setLoadingDeployments] = useState(false);
+  const [newDeployment, setNewDeployment] = useState<DeploymentInput>({
+    name: '',
+    vmSize: 'Standard_B2s',
+    adminUsername: 'azureuser',
+    adminPassword: '',
+    nsgId: undefined,
+  });
+  const [creatingDeployment, setCreatingDeployment] = useState(false);
+  const [deploymentError, setDeploymentError] = useState<string | null>(null);
+
   const [selectedNsgId, setSelectedNsgId] = useState<string | undefined>();
   const [rules, setRules] = useState<NsgRule[]>([]);
   const [loadingRules, setLoadingRules] = useState(false);
@@ -121,12 +141,23 @@ export const NetworkingPage = () => {
     }
   };
 
+  const reloadDeployments = async (rgId: string) => {
+    setLoadingDeployments(true);
+    try {
+      setDeployments(await api.listDeployments(rgId));
+    } finally {
+      setLoadingDeployments(false);
+    }
+  };
+
   useEffect(() => {
     setSelectedNsgId(undefined);
     if (selectedRgId) {
       reloadNsgs(selectedRgId);
+      reloadDeployments(selectedRgId);
     } else {
       setNsgs([]);
+      setDeployments([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedRgId]);
@@ -197,6 +228,27 @@ export const NetworkingPage = () => {
     await api.deleteNsg(id);
     if (selectedNsgId === id) setSelectedNsgId(undefined);
     await reloadNsgs(selectedRgId);
+  };
+
+  const handleCreateDeployment = async () => {
+    if (!selectedRgId || !newDeployment.name || !newDeployment.adminPassword) return;
+    setCreatingDeployment(true);
+    setDeploymentError(null);
+    try {
+      await api.createDeployment(selectedRgId, newDeployment);
+      setNewDeployment({ ...newDeployment, name: '', adminPassword: '' });
+      await reloadDeployments(selectedRgId);
+    } catch (err) {
+      setDeploymentError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setCreatingDeployment(false);
+    }
+  };
+
+  const handleDeleteDeployment = async (id: string) => {
+    if (!selectedRgId) return;
+    await api.deleteDeployment(id);
+    await reloadDeployments(selectedRgId);
   };
 
   const handleCreateRule = async () => {
@@ -403,6 +455,121 @@ export const NetworkingPage = () => {
                 {nsgError && (
                   <Typography color="error" variant="body2" style={{ marginTop: '0.5rem' }}>
                     {nsgError}
+                  </Typography>
+                )}
+              </div>
+            )}
+
+            {selectedRg && (
+              <div style={sectionStyle}>
+                <Typography variant="h6" gutterBottom>
+                  Deployments — {selectedRg.name}
+                </Typography>
+
+                {loadingDeployments ? (
+                  <Typography>Loading…</Typography>
+                ) : deployments.length === 0 ? (
+                  <Typography color="textSecondary" style={{ marginBottom: '1rem' }}>
+                    Nothing deployed into this resource group yet.
+                  </Typography>
+                ) : (
+                  <Table size="small" style={{ marginBottom: '1rem' }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Name</TableCell>
+                        <TableCell>Size</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell />
+                        <TableCell />
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {deployments.map(dep => (
+                        <TableRow key={dep.id}>
+                          <TableCell>{dep.name}</TableCell>
+                          <TableCell>{dep.vm_size}</TableCell>
+                          <TableCell>
+                            <StatusChip status={dep.status} error={dep.error} />
+                          </TableCell>
+                          <TableCell>
+                            {dep.console_url && (
+                              <a href={dep.console_url} target="_blank" rel="noreferrer">
+                                Open in Console
+                              </a>
+                            )}
+                          </TableCell>
+                          <TableCell align="right">
+                            <IconButton size="small" onClick={() => handleDeleteDeployment(dep.id)}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                )}
+
+                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <TextField
+                    label="Name"
+                    size="small"
+                    value={newDeployment.name}
+                    onChange={e => setNewDeployment({ ...newDeployment, name: e.target.value })}
+                  />
+                  <TextField
+                    label="VM Size"
+                    size="small"
+                    value={newDeployment.vmSize}
+                    onChange={e => setNewDeployment({ ...newDeployment, vmSize: e.target.value })}
+                  />
+                  <TextField
+                    label="Admin Username"
+                    size="small"
+                    value={newDeployment.adminUsername}
+                    onChange={e =>
+                      setNewDeployment({ ...newDeployment, adminUsername: e.target.value })
+                    }
+                  />
+                  <TextField
+                    label="Admin Password"
+                    type="password"
+                    size="small"
+                    value={newDeployment.adminPassword}
+                    onChange={e =>
+                      setNewDeployment({ ...newDeployment, adminPassword: e.target.value })
+                    }
+                  />
+                  <TextField
+                    select
+                    label="NSG"
+                    size="small"
+                    style={{ minWidth: 140 }}
+                    value={newDeployment.nsgId ?? ''}
+                    onChange={e =>
+                      setNewDeployment({ ...newDeployment, nsgId: e.target.value || undefined })
+                    }
+                  >
+                    <MenuItem value="">None</MenuItem>
+                    {nsgs
+                      .filter(nsg => nsg.status === 'active')
+                      .map(nsg => (
+                        <MenuItem key={nsg.id} value={nsg.id}>
+                          {nsg.name}
+                        </MenuItem>
+                      ))}
+                  </TextField>
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={creatingDeployment || !newDeployment.name || !newDeployment.adminPassword}
+                    onClick={handleCreateDeployment}
+                  >
+                    {creatingDeployment ? 'Deploying…' : 'Deploy'}
+                  </Button>
+                </div>
+                {deploymentError && (
+                  <Typography color="error" variant="body2" style={{ marginTop: '0.5rem' }}>
+                    {deploymentError}
                   </Typography>
                 )}
               </div>

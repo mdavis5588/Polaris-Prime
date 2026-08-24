@@ -287,3 +287,4 @@ samTool:
 #         clientId: ${ACME_TENANT_2_AZURE_CLIENT_ID}
 #         clientSecret: ${ACME_TENANT_2_AZURE_CLIENT_SECRET}
 #         location: eastus
+#         subnetId: ${ACME_TENANT_2_AZURE_SUBNET_ID}

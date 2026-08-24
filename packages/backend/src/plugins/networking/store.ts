@@ -1,6 +1,7 @@
 import type { Knex } from 'knex';
 import { randomUUID } from 'crypto';
 import type { RuleSpec } from './providers/types';
+import type { DeploymentSpec } from './providers/deploymentTypes';
 
 export interface ResourceGroupRecord {
   id: string;
@@ -36,6 +37,20 @@ export interface NsgRuleRecord {
   source_port_range: string;
   destination_address_prefix: string;
   destination_port_range: string;
+  status: 'pending' | 'active' | 'failed' | 'deleting';
+  error: string | null;
+  created_at: string;
+}
+
+export interface ServiceDeploymentRecord {
+  id: string;
+  resource_group_id: string;
+  nsg_id: string | null;
+  name: string;
+  vm_size: string;
+  admin_username: string;
+  external_id: string | null;
+  console_url: string | null;
   status: 'pending' | 'active' | 'failed' | 'deleting';
   error: string | null;
   created_at: string;
@@ -174,5 +189,53 @@ export class NetworkingStore {
 
   async deleteRule(id: string): Promise<void> {
     await this.db('nsg_rules').where({ id }).delete();
+  }
+
+  // --- Service deployments ---
+
+  async listDeployments(resourceGroupId: string): Promise<ServiceDeploymentRecord[]> {
+    return this.db<ServiceDeploymentRecord>('service_deployments')
+      .where({ resource_group_id: resourceGroupId })
+      .orderBy('created_at', 'asc');
+  }
+
+  async getDeployment(id: string): Promise<ServiceDeploymentRecord | undefined> {
+    return this.db<ServiceDeploymentRecord>('service_deployments').where({ id }).first();
+  }
+
+  async createDeployment(input: {
+    resourceGroupId: string;
+    nsgId?: string;
+    spec: DeploymentSpec;
+  }): Promise<string> {
+    const id = randomUUID();
+    await this.db('service_deployments').insert({
+      id,
+      resource_group_id: input.resourceGroupId,
+      nsg_id: input.nsgId ?? null,
+      name: input.spec.name,
+      vm_size: input.spec.vmSize,
+      admin_username: input.spec.adminUsername,
+      status: 'pending',
+    });
+    return id;
+  }
+
+  async markDeploymentResult(
+    id: string,
+    result: { status: 'active' | 'failed'; externalId?: string; consoleUrl?: string; error?: string },
+  ): Promise<void> {
+    await this.db('service_deployments')
+      .where({ id })
+      .update({
+        status: result.status,
+        external_id: result.externalId ?? null,
+        console_url: result.consoleUrl ?? null,
+        error: result.error ?? null,
+      });
+  }
+
+  async deleteDeployment(id: string): Promise<void> {
+    await this.db('service_deployments').where({ id }).delete();
   }
 }
