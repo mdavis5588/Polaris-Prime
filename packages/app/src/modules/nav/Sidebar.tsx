@@ -35,10 +35,11 @@ export const SidebarContent = NavContentBlueprint.make({
           </SidebarGroup>
           <SidebarDivider />
           <SidebarGroup label="Menu" icon={<MenuIcon />}>
+            {nav.take('page:dashboard')}
             {nav.take('page:catalog')}
             {nav.take('page:scaffolder')}
-            {nav.take('page:dbaas')}
             {nav.take('page:networking')}
+            {nav.take('page:finops')}
             <SidebarDivider />
             <SidebarScrollWrapper>
               {nav.rest({ sortBy: 'title' })}

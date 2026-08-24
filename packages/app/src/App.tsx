@@ -8,6 +8,8 @@ import { authModule } from './modules/auth';
 import { polarisPrimeTheme } from './theme/polarisPrime';
 import { dbaasPlugin } from './plugins/dbaas/plugin';
 import { networkingPlugin } from './plugins/networking/plugin';
+import { dashboardPlugin } from './plugins/dashboard/plugin';
+import { finOpsPlugin } from './plugins/finops/plugin';
 
 const polarisPrimeThemeExtension = ThemeBlueprint.make({
   name: 'polaris-prime',
@@ -29,5 +31,14 @@ const themeModule = createFrontendModule({
 });
 
 export default createApp({
-  features: [catalogPlugin, navModule, themeModule, authModule, dbaasPlugin, networkingPlugin],
+  features: [
+    catalogPlugin,
+    navModule,
+    themeModule,
+    authModule,
+    dbaasPlugin,
+    networkingPlugin,
+    dashboardPlugin,
+    finOpsPlugin,
+  ],
 });
