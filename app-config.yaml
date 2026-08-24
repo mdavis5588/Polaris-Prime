@@ -1,5 +1,5 @@
 app:
-  title: Scaffolded Backstage App
+  title: Polaris Prime
   baseUrl: http://localhost:3000
 
   # Enable all packages by default, this will discover packages from packages/app/package.json
@@ -65,6 +65,23 @@ proxy:
   #   '/test':
   #     target: 'https://example.com'
   #     changeOrigin: true
+  endpoints:
+    # Oracle's public OCI Database pricing API (no auth required).
+    '/oci-pricing':
+      target: 'https://apexapps.oracle.com/pls/apex/cetools/api/v1/products/?currencyCode=USD'
+      changeOrigin: true
+    # Azure's public Retail Prices API, filtered to Oracle-relevant Linux VM
+    # SKUs (Esv5 series, East US, pay-as-you-go), no auth required.
+    '/azure-pricing':
+      target: >-
+        https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=serviceName+eq+'Virtual+Machines'+and+armRegionName+eq+'eastus'+and+priceType+eq+'Consumption'+and+contains(skuName,'Esv5')+and+not+contains(skuName,'Windows')+and+not+contains(skuName,'Spot')
+      changeOrigin: true
+    # Azure Premium SSD Managed Disk pricing (East US), for storage cost —
+    # separate endpoint since /azure-pricing above is hardcoded to VM SKUs.
+    '/azure-storage-pricing':
+      target: >-
+        https://prices.azure.com/api/retail/prices?api-version=2023-01-01-preview&$filter=serviceName+eq+'Storage'+and+armRegionName+eq+'eastus'+and+priceType+eq+'Consumption'+and+contains(productName,'Premium+SSD+Managed+Disks')+and+not+contains(skuName,'Spot')
+      changeOrigin: true
 
 # Reference documentation http://backstage.io/docs/features/techdocs/configuration
 # Note: After experimenting with basic setup, use CI/CD to generate docs
@@ -82,6 +99,15 @@ auth:
   providers:
     # See https://backstage.io/docs/auth/guest/provider
     guest: {}
+    ### Microsoft (Entra ID / Azure AD) sign-in — required for real,
+    ### tenant-gated identity (platformTenants below). Uncomment once you
+    ### have an Azure AD app registration; guest auth keeps working
+    ### alongside it either way, so nothing breaks until you do.
+    # microsoft:
+    #   development:
+    #     clientId: ${AZURE_AD_CLIENT_ID}
+    #     clientSecret: ${AZURE_AD_CLIENT_SECRET}
+    #     tenantId: ${AZURE_AD_TENANT_ID}
   # see https://backstage.io/docs/ai/mcp-actions#client-id-metadata-documents
   # to learn more about client id metadata documents
   clientIdMetadataDocuments:
@@ -108,12 +134,6 @@ catalog:
     # Local example data, file locations are relative to the backend process, typically `packages/backend`
     - type: file
       target: ../../examples/entities.yaml
-
-    # Local example template
-    - type: file
-      target: ../../examples/template/template.yaml
-      rules:
-        - allow: [Template]
 
     # Local example organizational data
     - type: file
@@ -143,3 +163,140 @@ permission:
 mcpActions:
   name: 'My Company Backstage' # defaults to "backstage"
   description: 'Tools for managing your software catalog, creating new services from templates, and exploring your developer portal' # optional
+
+# Platform-level config for the Database as a Service plugin (the "dbaas"
+# frontend/backend plugins). These are NOT exposed to end users in the
+# wizard — they're infra defaults (compartment, subnet, service credentials)
+# that the platform team owns. All values are sourced from environment
+# variables; nothing here is a committed secret.
+#
+# Each client has ONE cloud account per target (their own OCI tenancy
+# and/or Azure subscription — only client/name are ever sent to the
+# browser via the dbaas-tenants backend plugin, credentials stay
+# server-side). Separately, each client has a list of "tenants" — simple
+# tracking tags (NOT tied to any specific cloud account) that a client
+# uses to group/attribute their own deployments for cost and inventory
+# purposes, e.g. "Tenant 1" might end up with on-prem AND cloud resources
+# all tagged to it. Every provisioned resource gets tagged with both the
+# client code and the picked tenant tag.
+#
+# Adding a new client means adding a block here (and the matching env
+# vars) — no code changes needed. Copy the "acme" block below as a
+# starting point.
+oracleDbaas:
+  clients:
+    - code: acme
+      name: Acme Corp
+      tenants:
+        - id: tenant-1
+          name: 'Tenant 1'
+        - id: tenant-2
+          name: 'Tenant 2'
+      oci:
+        region: ${ACME_OCI_REGION}
+        tenancyOcid: ${ACME_OCI_TENANCY_OCID}
+        userOcid: ${ACME_OCI_USER_OCID}
+        fingerprint: ${ACME_OCI_FINGERPRINT}
+        privateKey: ${ACME_OCI_PRIVATE_KEY}
+        # passphrase: ${ACME_OCI_PRIVATE_KEY_PASSPHRASE} # only if the key is encrypted
+        compartmentId: ${ACME_OCI_COMPARTMENT_ID}
+        availabilityDomain: ${ACME_OCI_AVAILABILITY_DOMAIN}
+        subnetId: ${ACME_OCI_SUBNET_ID}
+        sshPublicKey: ${ACME_OCI_SSH_PUBLIC_KEY}
+      azure:
+        subscriptionId: ${ACME_AZURE_SUBSCRIPTION_ID}
+        tenantId: ${ACME_AZURE_TENANT_ID}
+        clientId: ${ACME_AZURE_CLIENT_ID}
+        clientSecret: ${ACME_AZURE_CLIENT_SECRET}
+        resourceGroup: ${ACME_AZURE_RESOURCE_GROUP}
+        location: ${ACME_AZURE_LOCATION}
+        subnetId: ${ACME_AZURE_SUBNET_ID}
+        adminUsername: oracleadmin
+    # Copy the block above for each additional client, e.g.:
+    # - code: globex
+    #   name: Globex Inc
+    #   tenants:
+    #     - id: globex-eng
+    #       name: 'Engineering'
+    #     - id: globex-finance
+    #       name: 'Finance'
+    #   oci: { ... }
+    #   azure: { ... }
+
+  # Shared across all Azure tenants — which VM image to boot, not
+  # tenant-specific (unlike the auth/network config above).
+  azureImage:
+    publisher: Oracle
+    offer: oracle-database
+    defaultSku: '19'
+    skus:
+      19c: '19'
+      21c: '21'
+
+# Read-only connection to Helios/SAM-tool's Postgres database, used by the
+# sam-pricing backend plugin so the DBaaS cost comparison reflects actual
+# imported Oracle prices rather than only public list prices.
+samTool:
+  database:
+    host: ${SAM_TOOL_DB_HOST}
+    port: ${SAM_TOOL_DB_PORT}
+    database: ${SAM_TOOL_DB_NAME}
+    user: ${SAM_TOOL_DB_READONLY_USER}
+    password: ${SAM_TOOL_DB_READONLY_PASSWORD}
+    ssl: true
+
+# Platform-wide, login-scoped tenants for hybrid on-prem/Azure service
+# deployment — distinct from oracleDbaas.clients[].tenants[] above (which
+# is just a DBaaS cost-tracking tag, unauthenticated). Each tenant here
+# maps to an Azure AD security group; a signed-in user's access is
+# rechecked live against Microsoft Graph group membership on every
+# request by the tenants backend plugin. Requires auth.providers.microsoft
+# above to be configured — commented out entirely until it is, so this
+# never partially-loads with missing required fields.
+#
+# platformTenants:
+#   # App registration for app-only Graph group-membership lookups. Needs
+#   # the GroupMember.Read.All (or Directory.Read.All) Graph API
+#   # APPLICATION permission, admin-consented in your Azure AD tenant. Can
+#   # reuse the same app registration as auth.providers.microsoft.
+#   graph:
+#     tenantId: ${AZURE_AD_TENANT_ID}
+#     clientId: ${AZURE_AD_GRAPH_CLIENT_ID}
+#     clientSecret: ${AZURE_AD_GRAPH_CLIENT_SECRET}
+#   # Shared NetBox instance for on-prem VLAN + NSG-equivalent (access
+#   # list) provisioning — one instance serves every on-prem tenant.
+#   netbox:
+#     baseUrl: ${NETBOX_BASE_URL}
+#     apiToken: ${NETBOX_API_TOKEN}
+#     vlanGroupId: ${NETBOX_VLAN_GROUP_ID}
+#     vlanIdRangeStart: 100
+#     vlanIdRangeEnd: 999
+#     parentPrefixId: ${NETBOX_PARENT_PREFIX_ID}
+#     prefixLength: 24
+#   tenants:
+#     - adGroupId: ${ACME_TENANT_1_AD_GROUP_ID}
+#       clientCode: acme
+#       tenantId: tenant-1
+#       name: 'Acme Corp — Tenant 1'
+#       onPrem:
+#         resourcePoolId: acme-tenant-1-pool
+#         orchestratorUrl: ${ACME_TENANT_1_ORCHESTRATOR_URL}
+#         netboxSiteId: ${ACME_TENANT_1_NETBOX_SITE_ID}
+#     - adGroupId: ${ACME_TENANT_2_AD_GROUP_ID}
+#       clientCode: acme
+#       tenantId: tenant-2
+#       name: 'Acme Corp — Tenant 2'
+#       onPrem:
+#         resourcePoolId: acme-tenant-2-pool
+#         orchestratorUrl: ${ACME_TENANT_2_ORCHESTRATOR_URL}
+#         netboxSiteId: ${ACME_TENANT_2_NETBOX_SITE_ID}
+#       # Service principal for the networking plugin (real Resource
+#       # Groups/NSGs) — separate from the Graph app registration above,
+#       # scoped to just this tenant's own subscription.
+#       azure:
+#         subscriptionId: ${ACME_TENANT_2_AZURE_SUBSCRIPTION_ID}
+#         tenantId: ${AZURE_AD_TENANT_ID}
+#         clientId: ${ACME_TENANT_2_AZURE_CLIENT_ID}
+#         clientSecret: ${ACME_TENANT_2_AZURE_CLIENT_SECRET}
+#         location: eastus
+#         subnetId: ${ACME_TENANT_2_AZURE_SUBNET_ID}

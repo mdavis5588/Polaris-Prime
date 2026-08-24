@@ -31,6 +31,15 @@ backend:
 auth:
   providers:
     guest: {}
+    ### Microsoft (Entra ID / Azure AD) sign-in — uncomment once you have
+    ### an Azure AD app registration. See app-config.yaml for details;
+    ### this is the same config, just under the "production" environment
+    ### key instead of "development".
+    # microsoft:
+    #   production:
+    #     clientId: ${AZURE_AD_CLIENT_ID}
+    #     clientSecret: ${AZURE_AD_CLIENT_SECRET}
+    #     tenantId: ${AZURE_AD_TENANT_ID}
 
 catalog:
   # Overrides the default list locations from app-config.yaml as these contain example data.
@@ -41,12 +50,6 @@ catalog:
     # File locations are relative to the backend process, typically in a deployed context, such as in a Docker container, this will be the root
     - type: file
       target: ./examples/entities.yaml
-
-    # Local example template
-    - type: file
-      target: ./examples/template/template.yaml
-      rules:
-        - allow: [Template]
 
     # Local example organizational data
     - type: file

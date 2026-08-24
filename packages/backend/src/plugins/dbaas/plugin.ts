@@ -1,0 +1,21 @@
+import { coreServices, createBackendPlugin } from '@backstage/backend-plugin-api';
+import { createRouter } from './router';
+
+export const dbaasPlugin = createBackendPlugin({
+  pluginId: 'dbaas',
+  register(env) {
+    env.registerInit({
+      deps: {
+        httpRouter: coreServices.httpRouter,
+        logger: coreServices.logger,
+        config: coreServices.rootConfig,
+      },
+      async init({ httpRouter, logger, config }) {
+        httpRouter.use(await createRouter({ config, logger }));
+      },
+    });
+  },
+});
+
+// backend.add(import('./plugins/dbaas/plugin')) only picks up a default export.
+export default dbaasPlugin;
