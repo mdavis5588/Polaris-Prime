@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Catalog — Polaris Prime{% endblock %}
+{% block nav_catalog %}active{% endblock %}
+{% block page_title %}Catalog{% endblock %}
+{% block page_subtitle %}<p class="subtitle">Services, APIs, and self-service templates</p>{% endblock %}
+{% block content %}
+<div class="card">
+  <input
+    type="search"
+    name="q"
+    placeholder="Search catalog…"
+    value="{{ query }}"
+    hx-get="{% url 'catalog:list' %}"
+    hx-trigger="keyup changed delay:300ms, search"
+    hx-target="#catalog-results"
+    hx-swap="innerHTML"
+    style="width:100%;padding:0.6rem 0.75rem;border:1px solid var(--border);border-radius:8px;margin-bottom:1rem;"
+  />
+  <div id="catalog-results">
+    {% include "catalog/_entry_list.html" %}
+  </div>
+</div>
+{% endblock %}

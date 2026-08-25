@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}{{ entry.name }} — Polaris Prime{% endblock %}
+{% block nav_catalog %}active{% endblock %}
+{% block page_title %}{{ entry.name }}{% endblock %}
+{% block page_subtitle %}<p class="subtitle">{{ entry.get_kind_display }}{% if entry.owner %} · Owned by {{ entry.owner }}{% endif %}</p>{% endblock %}
+{% block content %}
+<div class="card">
+  {% if entry.description %}<p>{{ entry.description }}</p>{% endif %}
+  {% if entry.tag_list %}
+    <p class="muted">Tags: {{ entry.tags }}</p>
+  {% endif %}
+  {% if entry.link %}
+    <a class="btn" href="{{ entry.link }}">Open</a>
+  {% endif %}
+</div>
+<a class="btn secondary" href="{% url 'catalog:list' %}">Back to Catalog</a>
+{% endblock %}

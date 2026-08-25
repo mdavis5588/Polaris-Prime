@@ -1,0 +1,172 @@
+:root {
+  --primary: #7c3aed;
+  --accent: #8b5cf6;
+  --nav-bg: #2b2438;
+  --nav-text: #b3acc0;
+  --nav-text-selected: #ffffff;
+  --bg: #f8fafc;
+  --paper: #ffffff;
+  --border: #e2e8f0;
+  --text: #1e293b;
+  --text-muted: #64748b;
+  --error: #dc2626;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: 220px;
+  flex-shrink: 0;
+  background: var(--nav-bg);
+  color: var(--nav-text);
+  display: flex;
+  flex-direction: column;
+  padding: 1.25rem 0.75rem;
+}
+
+.sidebar .logo {
+  font-weight: 700;
+  font-size: 1.1rem;
+  color: #ffffff;
+  padding: 0 0.5rem 1.25rem;
+}
+
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.sidebar nav a {
+  display: block;
+  padding: 0.6rem 0.75rem;
+  border-radius: 8px;
+  color: var(--nav-text);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.sidebar nav a:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.sidebar nav a.active {
+  background: var(--accent);
+  color: var(--nav-text-selected);
+  font-weight: 600;
+}
+
+.sidebar .spacer { flex: 1; }
+
+.sidebar .account {
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  padding-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.sidebar .account a {
+  color: var(--nav-text);
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+}
+
+.topbar {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--paper);
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: 1.4rem;
+}
+
+.topbar .subtitle {
+  margin: 0.25rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.content {
+  padding: 1.5rem 2rem;
+}
+
+.card {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.muted { color: var(--text-muted); font-size: 0.9rem; }
+
+.btn {
+  display: inline-block;
+  background: var(--primary);
+  color: #ffffff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.9rem;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.btn:hover { background: var(--accent); }
+
+.btn.secondary {
+  background: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(--border); }
+
+.status-chip {
+  display: inline-block;
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  color: #ffffff;
+  font-size: 0.75rem;
+  text-transform: capitalize;
+}
+.status-active { background: #16a34a; }
+.status-pending { background: #d97706; }
+.status-failed { background: var(--error); }
+.status-deleting { background: var(--text-muted); }
+
+.messages { list-style: none; padding: 0; margin: 0 0 1rem; }
+.messages li {
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+.messages li.error { background: rgba(220, 38, 38, 0.08); color: var(--error); }
+.messages li.success { background: rgba(22, 163, 74, 0.08); color: #16a34a; }
+
+form.inline { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+form.inline label { display: block; font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+form.inline input, form.inline select {
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.9rem;
+}

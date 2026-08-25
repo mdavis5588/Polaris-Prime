@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-polaris_portal}
+      POSTGRES_USER: ${POSTGRES_USER:-polaris}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-polaris}
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - polaris_portal_db:/var/lib/postgresql/data
+
+volumes:
+  polaris_portal_db:

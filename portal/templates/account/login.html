@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% load socialaccount %}
+{% block title %}Sign in — Polaris Prime{% endblock %}
+{% block page_title %}Sign in{% endblock %}
+{% block content %}
+<div class="card" style="max-width:400px;">
+  {% get_providers as socialaccount_providers %}
+  {% if socialaccount_providers %}
+    {% for provider in socialaccount_providers %}
+      <a class="btn" href="{% provider_login_url provider.id process='login' %}" style="width:100%;text-align:center;display:block;">
+        Sign in with {{ provider.name }}
+      </a>
+    {% endfor %}
+  {% else %}
+    <p class="muted">
+      No sign-in provider is configured yet. Set AZURE_AD_CLIENT_ID,
+      AZURE_AD_CLIENT_SECRET, and AZURE_AD_TENANT_ID in your .env file —
+      see .env.example.
+    </p>
+  {% endif %}
+</div>
+{% endblock %}

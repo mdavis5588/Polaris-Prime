@@ -1,0 +1,48 @@
+{% load static %}<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{% block title %}Polaris Prime{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'css/base.css' %}" />
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+</head>
+<body>
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="logo">Polaris Prime</div>
+      <nav>
+        <a href="{% url 'dashboard:index' %}" class="{% block nav_dashboard %}{% endblock %}">Dashboard</a>
+        <a href="{% url 'catalog:list' %}" class="{% block nav_catalog %}{% endblock %}">Catalog</a>
+        <a href="{% url 'networking:index' %}" class="{% block nav_networking %}{% endblock %}">Networking</a>
+        <a href="{% url 'finops:index' %}" class="{% block nav_finops %}{% endblock %}">FinOps</a>
+      </nav>
+      <div class="spacer"></div>
+      <div class="account">
+        {% if user.is_authenticated %}
+          <div style="color:#fff;margin-bottom:0.4rem;">{{ user.get_full_name|default:user.email }}</div>
+          <a href="{% url 'account_logout' %}">Sign out</a>
+        {% else %}
+          <a href="{% url 'account_login' %}">Sign in</a>
+        {% endif %}
+      </div>
+    </aside>
+    <div class="main">
+      <div class="topbar">
+        <h1>{% block page_title %}{% endblock %}</h1>
+        {% block page_subtitle %}{% endblock %}
+      </div>
+      <div class="content">
+        {% if messages %}
+          <ul class="messages">
+            {% for message in messages %}
+              <li class="{{ message.tags }}">{{ message }}</li>
+            {% endfor %}
+          </ul>
+        {% endif %}
+        {% block content %}{% endblock %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

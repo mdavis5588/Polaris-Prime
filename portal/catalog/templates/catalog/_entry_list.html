@@ -1,0 +1,19 @@
+{% if entries %}
+<table>
+  <thead>
+    <tr><th>Name</th><th>Kind</th><th>Owner</th><th>Tags</th></tr>
+  </thead>
+  <tbody>
+    {% for entry in entries %}
+    <tr>
+      <td><a href="{% url 'catalog:detail' entry.pk %}">{{ entry.name }}</a></td>
+      <td>{{ entry.get_kind_display }}</td>
+      <td>{{ entry.owner|default:"—" }}</td>
+      <td>{{ entry.tags|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">No catalog entries {% if query %}match "{{ query }}"{% else %}yet{% endif %}.</p>
+{% endif %}
