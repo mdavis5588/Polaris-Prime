@@ -11,6 +11,17 @@
   <div class="layout">
     <aside class="sidebar">
       <div class="logo">Polaris Prime</div>
+      {% if my_tenants %}
+        <div class="tenant-switcher">
+          <form method="get" action="{% url 'tenants:switch' %}">
+            <select name="tenant_id" onchange="this.form.submit()">
+              {% for t in my_tenants %}
+                <option value="{{ t.pk }}" {% if current_tenant.pk == t.pk %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+      {% endif %}
       <nav>
         <a href="{% url 'dashboard:index' %}" class="{% block nav_dashboard %}{% endblock %}">Dashboard</a>
         <a href="{% url 'catalog:list' %}" class="{% block nav_catalog %}{% endblock %}">Catalog</a>

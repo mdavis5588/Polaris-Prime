@@ -53,10 +53,21 @@ Backstage version's `.env.example`.
   Backstage version's DBaaS wizard isn't being rebuilt here; it's
   referenced from the catalog as a placeholder instead (see the seed
   migration, `catalog/migrations/0002_seed_dbaas_entry.py`).
-- **tenants** — not yet built. Will port the Backstage version's
-  AD-group-gated tenant model: real Azure AD sign-in (already wired,
-  see `accounts/`) plus live Microsoft Graph group-membership checks to
-  determine which tenants a signed-in user can act as.
+- **tenants** — ported. `Client`/`Tenant` models, managed via `/admin/`;
+  a live Microsoft Graph app-only check (`tenants/graph.py`, 60s cache,
+  `tenants/services.py`) determines which tenants a signed-in user's AD
+  group memberships actually grant access to; a context processor
+  (`tenants/context_processors.py`) injects `my_tenants`/`current_tenant`
+  into every template so the sidebar's tenant switcher just works. Which
+  tenant you're "in" is tracked server-side in the session (`tenants/
+  views.py`, `switch_tenant`) — a deliberate improvement over the earlier
+  Node version's client-side/localStorage approach. Per-tenant Azure
+  service principal secrets are never stored in the database — see
+  `Tenant.get_azure_client_secret()` and `.env.example`. Ships with one
+  seeded example `Client`("Acme Corp") and two `Tenant`s with placeholder
+  `ad_group_id` values — replace them with real Azure AD security group
+  object ids via `/admin/` before Graph-based access checks do anything
+  useful.
 - **networking** — not yet built. Will port Resource Groups / NSGs /
   service deployments — real for Azure, NetBox-backed for on-prem VLANs
   and access lists, same model as the Backstage version.
@@ -68,6 +79,7 @@ Backstage version's `.env.example`.
 ## What's real right now vs. what's a placeholder
 
 Real: the whole skeleton (auth wiring, routing, base template/nav,
-Postgres persistence) and the catalog app, verified end-to-end against a
-real Postgres database. Placeholder: tenants, networking, dashboard, and
-finops all render but don't do anything yet — they're next.
+Postgres persistence), the catalog app, and the tenants app, all verified
+end-to-end against a real Postgres database. Placeholder: networking,
+dashboard, and finops all render but don't do anything yet — networking
+(Resource Groups/NSGs/NetBox/deployments) is next.
