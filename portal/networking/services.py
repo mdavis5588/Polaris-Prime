@@ -128,9 +128,26 @@ def delete_rule(rule: NsgRule) -> None:
 
 
 def create_deployment(
-    rg: ResourceGroup, nsg: NetworkSecurityGroup | None, name: str, vm_size: str, admin_username: str, admin_password: str
+    rg: ResourceGroup,
+    nsg: NetworkSecurityGroup | None,
+    name: str,
+    vm_size: str,
+    admin_username: str,
+    admin_password: str,
+    vcpu: int,
+    ram_gb: int,
+    storage_gb: int,
 ) -> ServiceDeployment:
-    deployment = ServiceDeployment.objects.create(resource_group=rg, nsg=nsg, name=name, vm_size=vm_size, admin_username=admin_username)
+    deployment = ServiceDeployment.objects.create(
+        resource_group=rg,
+        nsg=nsg,
+        name=name,
+        vm_size=vm_size,
+        admin_username=admin_username,
+        vcpu=vcpu,
+        ram_gb=ram_gb,
+        storage_gb=storage_gb,
+    )
 
     def action():
         provider = get_deployment_provider(rg.tenant, rg.target)

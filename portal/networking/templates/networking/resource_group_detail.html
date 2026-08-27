@@ -78,12 +78,15 @@
   <h3 style="margin-top:0;">Service deployments</h3>
   {% if deployments %}
     <table>
-      <thead><tr><th>Name</th><th>VM size</th><th>NSG</th><th>Status</th><th></th></tr></thead>
+      <thead><tr><th>Name</th><th>VM size</th><th>vCPU</th><th>RAM (GB)</th><th>Storage (GB)</th><th>NSG</th><th>Status</th><th></th></tr></thead>
       <tbody>
         {% for deployment in deployments %}
         <tr>
           <td>{% if deployment.console_url %}<a href="{{ deployment.console_url }}">{{ deployment.name }}</a>{% else %}{{ deployment.name }}{% endif %}</td>
           <td>{{ deployment.vm_size }}</td>
+          <td>{{ deployment.vcpu }}</td>
+          <td>{{ deployment.ram_gb }}</td>
+          <td>{{ deployment.storage_gb }}</td>
           <td>{{ deployment.nsg.name|default:"—" }}</td>
           <td><span class="status-chip status-{{ deployment.status }}">{{ deployment.get_status_display }}</span></td>
           <td>
@@ -108,6 +111,18 @@
     <div>
       <label for="dep-vm-size">VM size</label>
       <input id="dep-vm-size" type="text" name="vm_size" placeholder="Standard_B2s" required />
+    </div>
+    <div>
+      <label for="dep-vcpu">vCPU</label>
+      <input id="dep-vcpu" type="number" name="vcpu" min="1" value="1" required />
+    </div>
+    <div>
+      <label for="dep-ram-gb">RAM (GB)</label>
+      <input id="dep-ram-gb" type="number" name="ram_gb" min="1" value="1" required />
+    </div>
+    <div>
+      <label for="dep-storage-gb">Storage (GB)</label>
+      <input id="dep-storage-gb" type="number" name="storage_gb" min="1" value="1" required />
     </div>
     <div>
       <label for="dep-nsg">NSG</label>

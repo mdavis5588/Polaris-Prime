@@ -152,8 +152,17 @@ class ServiceDeployment(models.Model):
         NetworkSecurityGroup, on_delete=models.SET_NULL, null=True, blank=True, related_name="deployments"
     )
     name = models.SlugField(max_length=90)
-    vm_size = models.CharField(max_length=60, help_text="e.g. 'Standard_B2s'.")
+    vm_size = models.CharField(max_length=60, help_text="e.g. 'Standard_B2s'. Informational for Azure; on-prem has no VM size catalog to match against.")
     admin_username = models.CharField(max_length=60)
+
+    # Structured specs, independent of vm_size, so Orion (finops) can cost
+    # this server the same way regardless of target: multiply against the
+    # on-prem rate table directly, or roll up into an Azure Cost
+    # Management query keyed on the polaris:* tags set at creation time
+    # (see providers/azure.py) — vm_size alone isn't queryable that way.
+    vcpu = models.PositiveIntegerField(default=1)
+    ram_gb = models.PositiveIntegerField(default=1)
+    storage_gb = models.PositiveIntegerField(default=1)
 
     status = models.CharField(max_length=10, choices=ProvisioningStatus.choices, default=ProvisioningStatus.PENDING)
     error = models.TextField(blank=True)

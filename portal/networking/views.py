@@ -151,10 +151,23 @@ def deployment_create(request, rg_pk):
         vm_size = request.POST.get("vm_size", "").strip()
         admin_username = request.POST.get("admin_username", "").strip()
         admin_password = request.POST.get("admin_password", "")
+        vcpu = request.POST.get("vcpu", "").strip()
+        ram_gb = request.POST.get("ram_gb", "").strip()
+        storage_gb = request.POST.get("storage_gb", "").strip()
         nsg_pk = request.POST.get("nsg")
         nsg = get_object_or_404(rg.nsgs, pk=nsg_pk) if nsg_pk else None
-        if name and vm_size and admin_username and admin_password:
-            deployment = services.create_deployment(rg, nsg, name, vm_size, admin_username, admin_password)
+        if (
+            name
+            and vm_size
+            and admin_username
+            and admin_password
+            and vcpu.isdigit()
+            and ram_gb.isdigit()
+            and storage_gb.isdigit()
+        ):
+            deployment = services.create_deployment(
+                rg, nsg, name, vm_size, admin_username, admin_password, int(vcpu), int(ram_gb), int(storage_gb)
+            )
             if deployment.status == "failed":
                 messages.error(request, f'Failed to deploy "{name}": {deployment.error}')
     return redirect("networking:resource_group_detail", pk=rg.pk)

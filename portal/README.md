@@ -84,6 +84,17 @@ Backstage version's `.env.example`.
   create. See `.env.example` for the `NETBOX_*` settings on-prem
   provisioning needs, and the tenants app entry above for per-tenant
   Azure credentials.
+
+  For finops (Orion) purposes, cost attribution down to tenant → resource
+  group → server doesn't need a separate tagging system — it's already a
+  real FK chain (`ServiceDeployment.resource_group.tenant`). What *is*
+  tagging: every top-level Azure resource this provider creates gets
+  stamped with `polaris:tenant` / `polaris:resource_group` /
+  `polaris:deployment` tags (`providers/azure.py`, `_polaris_tags()`), so
+  Azure Cost Management's own tag-based cost queries line up with that
+  same hierarchy. On-prem has no cost API to tag into, so `ServiceDeployment`
+  carries structured `vcpu`/`ram_gb`/`storage_gb` fields instead — Orion
+  multiplies those against an on-prem rate table directly.
 - **dashboard**, **finops** — placeholder pages, intentionally not built
   out yet.
 - **accounts** — Microsoft sign-in wiring (django-allauth configuration

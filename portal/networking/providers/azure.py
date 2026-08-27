@@ -8,6 +8,14 @@ on-prem side models a Resource Group as one VLAN that subnets get carved
 out of (see onprem.py) — the Node version left VNet creation out
 entirely, but this portal needs both targets to expose the same
 "resource group holds subnets" shape.
+
+Every top-level resource this provider creates also gets stamped with
+polaris:tenant / polaris:resource_group (and polaris:deployment, for
+VMs/NICs) tags — see _polaris_tags() — so Orion (finops) can attribute
+real Azure Cost Management numbers back to the same tenant/RG/server
+hierarchy Postgres already tracks, without a separate mapping to keep in
+sync. Subnets are skipped: they're an ARM child resource and don't
+support tags of their own.
 """
 
 from azure.identity import ClientSecretCredential
@@ -47,6 +55,23 @@ def _last_segment(resource_id: str) -> str:
     return resource_id.rstrip("/").split("/")[-1]
 
 
+def _polaris_tags(tenant_slug: str, rg_name: str, deployment_name: str | None = None) -> dict:
+    """
+    Stamped onto every top-level Azure resource this provider creates
+    (subnets are a child resource and don't support tags in ARM, so they're
+    skipped). Orion (finops) reads these back via Azure Cost Management's
+    tag-based cost queries to attribute a resource's cost to the right
+    tenant/resource-group/server without having to separately maintain that
+    mapping on the Azure side — the ResourceGroup/ServiceDeployment rows in
+    Postgres are the source of truth, these tags are just how that same
+    hierarchy gets expressed on the Azure resource itself.
+    """
+    tags = {"polaris:tenant": tenant_slug, "polaris:resource_group": rg_name, "managedBy": "polaris-prime-networking"}
+    if deployment_name:
+        tags["polaris:deployment"] = deployment_name
+    return tags
+
+
 class AzureCredentials:
     """Reads a tenant's Azure service principal — subscription/tenant/client id from the Tenant row, the secret from the environment (see Tenant.get_azure_client_secret)."""
 
@@ -69,15 +94,17 @@ class AzureNetworkProvider(NetworkProvider):
     def __init__(self, tenant: Tenant):
         creds = AzureCredentials(tenant)
         self._location = creds.location
+        self._tenant_slug = tenant.tenant_id
         self._resource_client = ResourceManagementClient(creds.credential, creds.subscription_id)
         self._network_client = NetworkManagementClient(creds.credential, creds.subscription_id)
 
     def create_resource_group(self, name: str) -> str:
-        rg = self._resource_client.resource_groups.create_or_update(name, {"location": self._location})
+        tags = _polaris_tags(self._tenant_slug, name)
+        rg = self._resource_client.resource_groups.create_or_update(name, {"location": self._location, "tags": tags})
         self._network_client.virtual_networks.begin_create_or_update(
             name,
             f"{name}-vnet",
-            {"location": self._location, "address_space": {"address_prefixes": [_VNET_ADDRESS_SPACE]}},
+            {"location": self._location, "address_space": {"address_prefixes": [_VNET_ADDRESS_SPACE]}, "tags": tags},
         ).result()
         return rg.id
 
@@ -100,7 +127,7 @@ class AzureNetworkProvider(NetworkProvider):
     def create_nsg(self, resource_group_external_id: str, name: str) -> str:
         rg_name = _resource_group_name_from_id(resource_group_external_id)
         nsg = self._network_client.network_security_groups.begin_create_or_update(
-            rg_name, name, {"location": self._location}
+            rg_name, name, {"location": self._location, "tags": _polaris_tags(self._tenant_slug, rg_name)}
         ).result()
         return nsg.id
 
@@ -141,12 +168,14 @@ class AzureDeploymentProvider(DeploymentProvider):
         self._location = creds.location
         self._subnet_id = creds.subnet_id
         self._tenant_id = tenant.azure_tenant_id
+        self._tenant_slug = tenant.tenant_id
         self._network_client = NetworkManagementClient(creds.credential, creds.subscription_id)
         self._compute_client = ComputeManagementClient(creds.credential, creds.subscription_id)
 
     def create_deployment(self, resource_group_external_id: str, spec: DeploymentSpec) -> DeploymentResult:
         rg_name = _resource_group_name_from_id(resource_group_external_id)
         nic_name = f"{spec.name}-nic"
+        tags = _polaris_tags(self._tenant_slug, rg_name, spec.name)
 
         nic = self._network_client.network_interfaces.begin_create_or_update(
             rg_name,
@@ -155,6 +184,7 @@ class AzureDeploymentProvider(DeploymentProvider):
                 "location": self._location,
                 "ip_configurations": [{"name": f"{spec.name}-ipconfig", "subnet": {"id": self._subnet_id}}],
                 "network_security_group": {"id": spec.nsg_external_id} if spec.nsg_external_id else None,
+                "tags": tags,
             },
         ).result()
 
@@ -171,7 +201,7 @@ class AzureDeploymentProvider(DeploymentProvider):
                     "admin_password": spec.admin_password,
                 },
                 "network_profile": {"network_interfaces": [{"id": nic.id, "primary": True}]},
-                "tags": {"managedBy": "polaris-prime-networking"},
+                "tags": tags,
             },
         ).result()
 
