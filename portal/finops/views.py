@@ -17,11 +17,17 @@ _RATE_FIELDS = ["vcpu_monthly_rate", "ram_gb_monthly_rate", "storage_gb_monthly_
 def index(request):
     tenant = get_current_tenant(request)
     rg_costs = []
-    tenant_total = None
+    tenant_total = azure_total = onprem_total = None
     if tenant:
         rg_costs = [(rg, services.get_resource_group_cost(rg)) for rg in tenant.resource_groups.all()]
-        tenant_total = services.get_tenant_cost(tenant)
-    return render(request, "finops/index.html", {"rg_costs": rg_costs, "tenant_total": tenant_total})
+        tenant_total = services.sum_costs(cost for _, cost in rg_costs)
+        azure_total = services.sum_costs(cost for rg, cost in rg_costs if rg.target == "azure")
+        onprem_total = services.sum_costs(cost for rg, cost in rg_costs if rg.target == "onprem")
+    return render(
+        request,
+        "finops/index.html",
+        {"rg_costs": rg_costs, "tenant_total": tenant_total, "azure_total": azure_total, "onprem_total": onprem_total},
+    )
 
 
 @login_required

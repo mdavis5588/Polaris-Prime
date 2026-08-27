@@ -40,6 +40,13 @@ class CostBreakdown:
 ZERO_COST = CostBreakdown(Decimal("0"), Decimal("0"), Decimal("0"))
 
 
+def sum_costs(costs) -> CostBreakdown:
+    total = ZERO_COST
+    for cost in costs:
+        total = total + cost
+    return total
+
+
 def get_deployment_cost(deployment: ServiceDeployment) -> CostBreakdown:
     if deployment.resource_group.target == "azure":
         compute = _azure_cost.get_deployment_cost(deployment)
@@ -64,7 +71,4 @@ def get_resource_group_cost(resource_group: ResourceGroup) -> CostBreakdown:
 
 
 def get_tenant_cost(tenant: Tenant) -> CostBreakdown:
-    total = ZERO_COST
-    for resource_group in tenant.resource_groups.all():
-        total = total + get_resource_group_cost(resource_group)
-    return total
+    return sum_costs(get_resource_group_cost(rg) for rg in tenant.resource_groups.all())

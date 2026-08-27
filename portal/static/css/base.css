@@ -134,6 +134,39 @@ body {
 
 .muted { color: var(--text-muted); font-size: 0.9rem; }
 
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.stat-tile {
+  background: var(--paper);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.1rem 1.4rem;
+}
+
+.stat-tile.stat-emphasis {
+  border-color: var(--primary);
+}
+
+.stat-tile .stat-label {
+  margin: 0 0 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stat-tile .stat-value {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
 .btn {
   display: inline-block;
   background: var(--primary);

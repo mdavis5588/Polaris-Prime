@@ -9,15 +9,31 @@
     <p class="muted">You don't have access to any tenants yet, so there's nothing to show here. Once your AD group membership grants you a tenant, pick it from the switcher in the sidebar.</p>
   </div>
 {% else %}
-  <div class="card">
-    <h3 style="margin-top:0;">{{ current_tenant.name }} — total monthly cost</h3>
-    {% if tenant_total %}
-      <p style="font-size:2rem;font-weight:700;margin:0 0 0.5rem;">${{ tenant_total.total|floatformat:2 }}</p>
-      <p class="muted">Compute ${{ tenant_total.compute|floatformat:2 }} · Managed services ${{ tenant_total.managed_service|floatformat:2 }} · Licensing ${{ tenant_total.license|floatformat:2 }}</p>
-    {% else %}
-      <p class="muted">No resource groups yet.</p>
-    {% endif %}
+  <div class="stat-grid">
+    <div class="stat-tile stat-emphasis">
+      <p class="stat-label">Total — {{ current_tenant.name }}</p>
+      <p class="stat-value">${{ tenant_total.total|floatformat:2 }}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">Compute</p>
+      <p class="stat-value">${{ tenant_total.compute|floatformat:2 }}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">Licensing</p>
+      <p class="stat-value">${{ tenant_total.license|floatformat:2 }}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">Azure — total</p>
+      <p class="stat-value">${{ azure_total.total|floatformat:2 }}</p>
+    </div>
+    <div class="stat-tile">
+      <p class="stat-label">On-prem — total</p>
+      <p class="stat-value">${{ onprem_total.total|floatformat:2 }}</p>
+    </div>
   </div>
+  {% if tenant_total.managed_service %}
+    <p class="muted">Includes ${{ tenant_total.managed_service|floatformat:2 }}/mo in managed-service costs (rolled into the totals above).</p>
+  {% endif %}
 
   <div class="card">
     <h3 style="margin-top:0;">By resource group</h3>
