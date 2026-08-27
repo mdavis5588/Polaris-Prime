@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+{% block title %}{{ rg.name }} — Polaris Prime{% endblock %}
+{% block nav_networking %}active{% endblock %}
+{% block page_title %}{{ rg.name }}{% endblock %}
+{% block page_subtitle %}<p class="subtitle">{{ rg.get_target_display }} · <span class="status-chip status-{{ rg.status }}">{{ rg.get_status_display }}</span></p>{% endblock %}
+{% block content %}
+{% if rg.error %}<div class="card"><p class="muted">Last error: {{ rg.error }}</p></div>{% endif %}
+
+<div class="card">
+  <h3 style="margin-top:0;">Subnets</h3>
+  {% if subnets %}
+    <table>
+      <thead><tr><th>Name</th><th>CIDR</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for subnet in subnets %}
+        <tr>
+          <td>{{ subnet.name }}</td>
+          <td>{{ subnet.cidr|default:"—" }}</td>
+          <td><span class="status-chip status-{{ subnet.status }}">{{ subnet.get_status_display }}</span></td>
+          <td>
+            <form method="post" action="{% url 'networking:subnet_delete' rg.pk subnet.pk %}" onsubmit="return confirm('Delete subnet {{ subnet.name }}?');">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No subnets yet.</p>
+  {% endif %}
+  <form method="post" action="{% url 'networking:subnet_create' rg.pk %}" class="inline" style="margin-top:1rem;">
+    {% csrf_token %}
+    <div>
+      <label for="subnet-name">Name</label>
+      <input id="subnet-name" type="text" name="name" required />
+    </div>
+    <button class="btn" type="submit">Add subnet</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">NSGs</h3>
+  {% if nsgs %}
+    <table>
+      <thead><tr><th>Name</th><th>Status</th><th>Rules</th><th></th></tr></thead>
+      <tbody>
+        {% for nsg in nsgs %}
+        <tr>
+          <td><a href="{% url 'networking:nsg_detail' rg.pk nsg.pk %}">{{ nsg.name }}</a></td>
+          <td><span class="status-chip status-{{ nsg.status }}">{{ nsg.get_status_display }}</span></td>
+          <td>{{ nsg.rules.count }}</td>
+          <td>
+            <form method="post" action="{% url 'networking:nsg_delete' rg.pk nsg.pk %}" onsubmit="return confirm('Delete NSG {{ nsg.name }}?');">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No NSGs yet.</p>
+  {% endif %}
+  <form method="post" action="{% url 'networking:nsg_create' rg.pk %}" class="inline" style="margin-top:1rem;">
+    {% csrf_token %}
+    <div>
+      <label for="nsg-name">Name</label>
+      <input id="nsg-name" type="text" name="name" required />
+    </div>
+    <button class="btn" type="submit">Add NSG</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0;">Service deployments</h3>
+  {% if deployments %}
+    <table>
+      <thead><tr><th>Name</th><th>VM size</th><th>NSG</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        {% for deployment in deployments %}
+        <tr>
+          <td>{% if deployment.console_url %}<a href="{{ deployment.console_url }}">{{ deployment.name }}</a>{% else %}{{ deployment.name }}{% endif %}</td>
+          <td>{{ deployment.vm_size }}</td>
+          <td>{{ deployment.nsg.name|default:"—" }}</td>
+          <td><span class="status-chip status-{{ deployment.status }}">{{ deployment.get_status_display }}</span></td>
+          <td>
+            <form method="post" action="{% url 'networking:deployment_delete' rg.pk deployment.pk %}" onsubmit="return confirm('Delete deployment {{ deployment.name }}?');">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No services deployed yet.</p>
+  {% endif %}
+  <form method="post" action="{% url 'networking:deployment_create' rg.pk %}" class="inline" style="margin-top:1rem;">
+    {% csrf_token %}
+    <div>
+      <label for="dep-name">Name</label>
+      <input id="dep-name" type="text" name="name" required />
+    </div>
+    <div>
+      <label for="dep-vm-size">VM size</label>
+      <input id="dep-vm-size" type="text" name="vm_size" placeholder="Standard_B2s" required />
+    </div>
+    <div>
+      <label for="dep-nsg">NSG</label>
+      <select id="dep-nsg" name="nsg">
+        <option value="">None</option>
+        {% for nsg in nsgs %}<option value="{{ nsg.pk }}">{{ nsg.name }}</option>{% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="dep-username">Admin username</label>
+      <input id="dep-username" type="text" name="admin_username" required />
+    </div>
+    <div>
+      <label for="dep-password">Admin password</label>
+      <input id="dep-password" type="password" name="admin_password" required />
+    </div>
+    <button class="btn" type="submit">Deploy</button>
+  </form>
+</div>
+
+<a class="btn secondary" href="{% url 'networking:index' %}">Back to Networking</a>
+{% endblock %}

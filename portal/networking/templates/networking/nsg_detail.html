@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}{{ nsg.name }} — Polaris Prime{% endblock %}
+{% block nav_networking %}active{% endblock %}
+{% block page_title %}{{ nsg.name }}{% endblock %}
+{% block page_subtitle %}<p class="subtitle">NSG in {{ rg.name }} · <span class="status-chip status-{{ nsg.status }}">{{ nsg.get_status_display }}</span></p>{% endblock %}
+{% block content %}
+{% if nsg.error %}<div class="card"><p class="muted">Last error: {{ nsg.error }}</p></div>{% endif %}
+
+<div class="card">
+  <h3 style="margin-top:0;">Rules</h3>
+  {% if rules %}
+    <table>
+      <thead>
+        <tr><th>Priority</th><th>Name</th><th>Direction</th><th>Access</th><th>Protocol</th><th>Source</th><th>Destination</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for rule in rules %}
+        <tr>
+          <td>{{ rule.priority }}</td>
+          <td>{{ rule.name }}</td>
+          <td>{{ rule.get_direction_display }}</td>
+          <td>{{ rule.get_access_display }}</td>
+          <td>{{ rule.get_protocol_display }}</td>
+          <td>{{ rule.source_address_prefix }}:{{ rule.source_port_range }}</td>
+          <td>{{ rule.destination_address_prefix }}:{{ rule.destination_port_range }}</td>
+          <td><span class="status-chip status-{{ rule.status }}">{{ rule.get_status_display }}</span></td>
+          <td>
+            <form method="post" action="{% url 'networking:rule_delete' rg.pk nsg.pk rule.pk %}" onsubmit="return confirm('Delete rule {{ rule.name }}?');">
+              {% csrf_token %}
+              <button class="btn secondary" type="submit">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No rules yet — default deny applies.</p>
+  {% endif %}
+
+  <h4>Add rule</h4>
+  <form method="post" action="{% url 'networking:rule_create' rg.pk nsg.pk %}" class="inline">
+    {% csrf_token %}
+    <div><label for="rule-name">Name</label><input id="rule-name" type="text" name="name" required /></div>
+    <div><label for="rule-priority">Priority</label><input id="rule-priority" type="number" name="priority" min="1" max="4096" required /></div>
+    <div>
+      <label for="rule-direction">Direction</label>
+      <select id="rule-direction" name="direction">
+        <option value="inbound">Inbound</option>
+        <option value="outbound">Outbound</option>
+      </select>
+    </div>
+    <div>
+      <label for="rule-access">Access</label>
+      <select id="rule-access" name="access">
+        <option value="allow">Allow</option>
+        <option value="deny">Deny</option>
+      </select>
+    </div>
+    <div>
+      <label for="rule-protocol">Protocol</label>
+      <select id="rule-protocol" name="protocol">
+        <option value="tcp">TCP</option>
+        <option value="udp">UDP</option>
+        <option value="*">Any</option>
+      </select>
+    </div>
+    <div><label for="rule-src-prefix">Source prefix</label><input id="rule-src-prefix" type="text" name="source_address_prefix" value="*" /></div>
+    <div><label for="rule-src-port">Source port</label><input id="rule-src-port" type="text" name="source_port_range" value="*" /></div>
+    <div><label for="rule-dst-prefix">Destination prefix</label><input id="rule-dst-prefix" type="text" name="destination_address_prefix" value="*" /></div>
+    <div><label for="rule-dst-port">Destination port</label><input id="rule-dst-port" type="text" name="destination_port_range" value="*" /></div>
+    <button class="btn" type="submit">Add rule</button>
+  </form>
+</div>
+
+<a class="btn secondary" href="{% url 'networking:resource_group_detail' rg.pk %}">Back to {{ rg.name }}</a>
+{% endblock %}

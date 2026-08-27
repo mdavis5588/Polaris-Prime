@@ -185,3 +185,17 @@ if _azure_client_id and _azure_client_secret and _azure_tenant_id:
 GRAPH_CLIENT_ID = os.environ.get("AZURE_AD_GRAPH_CLIENT_ID", _azure_client_id)
 GRAPH_CLIENT_SECRET = os.environ.get("AZURE_AD_GRAPH_CLIENT_SECRET", _azure_client_secret)
 GRAPH_TENANT_ID = _azure_tenant_id
+
+
+# --- Networking: NetBox (on-prem VLAN/IPAM + NSG-equivalent access lists
+# via the community netbox-acls plugin — see networking/providers/netbox.py).
+# One NetBox instance/parent prefix is shared across all on-prem tenants;
+# per-tenant scoping is via Tenant.netbox_site_id (see tenants/models.py).
+
+NETBOX_BASE_URL = os.environ.get("NETBOX_BASE_URL", "")
+NETBOX_API_TOKEN = os.environ.get("NETBOX_API_TOKEN", "")
+NETBOX_VLAN_GROUP_ID = os.environ.get("NETBOX_VLAN_GROUP_ID")
+NETBOX_VLAN_ID_RANGE_START = int(os.environ.get("NETBOX_VLAN_ID_RANGE_START", "100"))
+NETBOX_VLAN_ID_RANGE_END = int(os.environ.get("NETBOX_VLAN_ID_RANGE_END", "999"))
+NETBOX_PARENT_PREFIX_ID = os.environ.get("NETBOX_PARENT_PREFIX_ID")
+NETBOX_PREFIX_LENGTH = int(os.environ.get("NETBOX_PREFIX_LENGTH", "24"))

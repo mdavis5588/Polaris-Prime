@@ -2,13 +2,63 @@
 {% block title %}Networking — Polaris Prime{% endblock %}
 {% block nav_networking %}active{% endblock %}
 {% block page_title %}Networking{% endblock %}
-{% block page_subtitle %}<p class="subtitle">Resource Groups and Network Security Groups — the same model on-prem and Azure</p>{% endblock %}
+{% block page_subtitle %}<p class="subtitle">Resource Groups, subnets, and NSGs{% if current_tenant %} for {{ current_tenant.name }}{% endif %}</p>{% endblock %}
 {% block content %}
-<div class="card">
-  <p class="muted">
-    Not ported yet — this is next up. The Node/Backstage version's Resource
-    Groups + NSGs + service deployments (real for Azure, NetBox-backed for
-    on-prem) are being rebuilt here next.
-  </p>
-</div>
+{% if not current_tenant %}
+  <div class="card">
+    <p class="muted">You don't have access to any tenants yet, so there's nothing to show here. Once your AD group membership grants you a tenant, pick it from the switcher in the sidebar.</p>
+  </div>
+{% else %}
+  <div class="card">
+    <h3 style="margin-top:0;">New Resource Group</h3>
+    <form method="post" action="{% url 'networking:resource_group_create' %}" class="inline">
+      {% csrf_token %}
+      <div>
+        <label for="rg-name">Name</label>
+        <input id="rg-name" type="text" name="name" required />
+      </div>
+      <div>
+        <label for="rg-description">Description</label>
+        <input id="rg-description" type="text" name="description" />
+      </div>
+      <div>
+        <label for="rg-target">Target</label>
+        <select id="rg-target" name="target">
+          <option value="azure" {% if not current_tenant.has_azure %}disabled{% endif %}>Azure</option>
+          <option value="onprem" {% if not current_tenant.has_onprem %}disabled{% endif %}>On-prem</option>
+        </select>
+      </div>
+      <button class="btn" type="submit">Create</button>
+    </form>
+  </div>
+
+  <div class="card">
+    {% if resource_groups %}
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Target</th><th>Status</th><th>Subnets</th><th>NSGs</th><th></th></tr>
+        </thead>
+        <tbody>
+          {% for rg in resource_groups %}
+          <tr>
+            <td><a href="{% url 'networking:resource_group_detail' rg.pk %}">{{ rg.name }}</a></td>
+            <td>{{ rg.get_target_display }}</td>
+            <td><span class="status-chip status-{{ rg.status }}">{{ rg.get_status_display }}</span></td>
+            <td>{{ rg.subnets.count }}</td>
+            <td>{{ rg.nsgs.count }}</td>
+            <td>
+              <form method="post" action="{% url 'networking:resource_group_delete' rg.pk %}" onsubmit="return confirm('Delete resource group {{ rg.name }}? This deletes its VLAN/VNet, subnets, and NSGs.');">
+                {% csrf_token %}
+                <button class="btn secondary" type="submit">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No resource groups yet for {{ current_tenant.name }}.</p>
+    {% endif %}
+  </div>
+{% endif %}
 {% endblock %}

@@ -39,3 +39,24 @@ def get_my_tenants(user: AbstractBaseUser) -> list[Tenant]:
         cache.set(cache_key, group_ids, _CACHE_TTL_SECONDS)
 
     return list(Tenant.objects.select_related("client").filter(ad_group_id__in=group_ids))
+
+
+def get_current_tenant(request) -> Tenant | None:
+    """
+    Which tenant the signed-in user is currently working in — the same
+    resolution the tenant_context context processor uses (my_tenants
+    cross-referenced against the session's current_tenant_id, falling
+    back to the first accessible tenant). Views outside of template
+    rendering (networking's, for scoping querysets) call this directly
+    rather than relying on template context.
+    """
+    if not request.user.is_authenticated:
+        return None
+
+    my_tenants = get_my_tenants(request.user)
+    current_id = request.session.get("current_tenant_id")
+    current_tenant = next((t for t in my_tenants if t.pk == current_id), None)
+    if current_tenant is None and my_tenants:
+        current_tenant = my_tenants[0]
+        request.session["current_tenant_id"] = current_tenant.pk
+    return current_tenant

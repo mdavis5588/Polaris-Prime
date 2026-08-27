@@ -68,9 +68,22 @@ Backstage version's `.env.example`.
   `ad_group_id` values — replace them with real Azure AD security group
   object ids via `/admin/` before Graph-based access checks do anything
   useful.
-- **networking** — not yet built. Will port Resource Groups / NSGs /
-  service deployments — real for Azure, NetBox-backed for on-prem VLANs
-  and access lists, same model as the Backstage version.
+- **networking** — ported. Resource Groups, Subnets, NSGs/rules, and
+  service deployments, scoped to whichever tenant the sidebar switcher
+  has selected. A Resource Group is one VLAN on-prem (via NetBox core
+  IPAM) or one VNet in Azure, with Subnets carved out of it on demand —
+  a client can create several, rather than getting one auto-allocated
+  at Resource Group creation time. NSGs map to real Azure NSGs or, on-prem, to access
+  lists from the community netbox-acls plugin, scoped to the RG's VLAN. Service deployments are real Azure IaaS VMs; on-prem
+  deployment is a deliberate stub (`networking/providers/onprem.py`,
+  `OnPremDeploymentProvider`) pending an orchestrator API contract — NetBox
+  is IPAM/DCIM, not a hypervisor. `networking/providers/base.py` defines
+  the canonical `NetworkProvider`/`DeploymentProvider` interface both
+  targets implement; `networking/services.py` dispatches to the right one
+  per tenant+target and persists pending/active/failed status on every
+  create. See `.env.example` for the `NETBOX_*` settings on-prem
+  provisioning needs, and the tenants app entry above for per-tenant
+  Azure credentials.
 - **dashboard**, **finops** — placeholder pages, intentionally not built
   out yet.
 - **accounts** — Microsoft sign-in wiring (django-allauth configuration
@@ -79,7 +92,11 @@ Backstage version's `.env.example`.
 ## What's real right now vs. what's a placeholder
 
 Real: the whole skeleton (auth wiring, routing, base template/nav,
-Postgres persistence), the catalog app, and the tenants app, all verified
-end-to-end against a real Postgres database. Placeholder: networking,
-dashboard, and finops all render but don't do anything yet — networking
-(Resource Groups/NSGs/NetBox/deployments) is next.
+Postgres persistence), the catalog app, the tenants app, and the
+networking app, all verified end-to-end against a real Postgres database
+(networking's Azure/NetBox provider calls were verified against mocked
+HTTP/SDK boundaries — this sandbox has no real Azure subscription or
+NetBox instance to call). Placeholder: dashboard and finops render but
+don't do anything yet. On-prem service deployment is a deliberate stub
+within the otherwise-real networking app — see the networking entry
+above.
