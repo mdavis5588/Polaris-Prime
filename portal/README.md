@@ -95,19 +95,40 @@ Backstage version's `.env.example`.
   same hierarchy. On-prem has no cost API to tag into, so `ServiceDeployment`
   carries structured `vcpu`/`ram_gb`/`storage_gb` fields instead — Orion
   multiplies those against an on-prem rate table directly.
-- **dashboard**, **finops** — placeholder pages, intentionally not built
-  out yet.
+- **finops (Orion)** — ported. Combined cost visibility per tenant,
+  rolled up from real relations rather than a tagging system: `Tenant`
+  → `ResourceGroup` → `ServiceDeployment` is a real FK chain, so
+  `finops/services.py` just sums a per-server `CostBreakdown` (compute +
+  managed service + licensing) up that tree — `get_deployment_cost`,
+  `get_resource_group_cost`, `get_tenant_cost`. A server's compute cost
+  is either real Azure spend (`finops/providers.py`, `AzureCostClient`,
+  scoped by the `polaris:*` tags described above) or, on-prem, the rate
+  card (`OnPremRateCard`) multiplied against that server's own
+  `vcpu`/`ram_gb`/`storage_gb`. Managed-service cost is the rate card's
+  flat monthly add-on, applied only to servers with
+  `ServiceDeployment.is_managed` set. Licensing cost comes from Helios
+  (`HeliosClient`). Both `AzureCostClient` and `HeliosClient` are
+  deliberate mocks returning $0 until real credentials/API docs are
+  available — nothing else needs to change once they are, since
+  `get_deployment_cost` is the only caller. The on-prem rate card is
+  editable at `/finops/rates/` (the "page to input potential costs") or
+  via `/admin/`; the dashboard at `/finops/` shows the current tenant's
+  total and a per-resource-group breakdown, drilling into
+  `/finops/resource-groups/<id>/` for the per-server breakdown.
+- **dashboard** — placeholder page, intentionally not built out yet.
 - **accounts** — Microsoft sign-in wiring (django-allauth configuration
   and adapter). No dedicated views of its own.
 
 ## What's real right now vs. what's a placeholder
 
 Real: the whole skeleton (auth wiring, routing, base template/nav,
-Postgres persistence), the catalog app, the tenants app, and the
-networking app, all verified end-to-end against a real Postgres database
-(networking's Azure/NetBox provider calls were verified against mocked
-HTTP/SDK boundaries — this sandbox has no real Azure subscription or
-NetBox instance to call). Placeholder: dashboard and finops render but
-don't do anything yet. On-prem service deployment is a deliberate stub
-within the otherwise-real networking app — see the networking entry
+Postgres persistence), the catalog app, the tenants app, the networking
+app, and the finops (Orion) app, all verified end-to-end against a real
+Postgres database (networking's Azure/NetBox provider calls, and
+finops's Azure Cost Management / Helios lookups, were verified against
+mocked HTTP/SDK boundaries — this sandbox has no real Azure
+subscription, NetBox instance, or Helios instance to call). Placeholder:
+dashboard renders but doesn't do anything yet. On-prem service
+deployment is a deliberate stub within the otherwise-real networking app
+— see the networking entry
 above.

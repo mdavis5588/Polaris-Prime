@@ -1,10 +1,49 @@
 {% extends "base.html" %}
-{% block title %}FinOps — Polaris Prime{% endblock %}
+{% block title %}Orion — Polaris Prime{% endblock %}
 {% block nav_finops %}active{% endblock %}
-{% block page_title %}FinOps{% endblock %}
-{% block page_subtitle %}<p class="subtitle">Cost tracking across your resource groups and deployments</p>{% endblock %}
+{% block page_title %}Orion{% endblock %}
+{% block page_subtitle %}<p class="subtitle">Cost visibility{% if current_tenant %} for {{ current_tenant.name }}{% endif %} — licensing, compute, and managed services combined</p>{% endblock %}
 {% block content %}
-<div class="card">
-  <p class="muted">Coming soon.</p>
-</div>
+{% if not current_tenant %}
+  <div class="card">
+    <p class="muted">You don't have access to any tenants yet, so there's nothing to show here. Once your AD group membership grants you a tenant, pick it from the switcher in the sidebar.</p>
+  </div>
+{% else %}
+  <div class="card">
+    <h3 style="margin-top:0;">{{ current_tenant.name }} — total monthly cost</h3>
+    {% if tenant_total %}
+      <p style="font-size:2rem;font-weight:700;margin:0 0 0.5rem;">${{ tenant_total.total|floatformat:2 }}</p>
+      <p class="muted">Compute ${{ tenant_total.compute|floatformat:2 }} · Managed services ${{ tenant_total.managed_service|floatformat:2 }} · Licensing ${{ tenant_total.license|floatformat:2 }}</p>
+    {% else %}
+      <p class="muted">No resource groups yet.</p>
+    {% endif %}
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0;">By resource group</h3>
+    {% if rg_costs %}
+      <table>
+        <thead>
+          <tr><th>Resource group</th><th>Target</th><th>Compute</th><th>Managed services</th><th>Licensing</th><th>Total</th></tr>
+        </thead>
+        <tbody>
+          {% for rg, cost in rg_costs %}
+          <tr>
+            <td><a href="{% url 'finops:resource_group_detail' rg.pk %}">{{ rg.name }}</a></td>
+            <td>{{ rg.get_target_display }}</td>
+            <td>${{ cost.compute|floatformat:2 }}</td>
+            <td>${{ cost.managed_service|floatformat:2 }}</td>
+            <td>${{ cost.license|floatformat:2 }}</td>
+            <td>${{ cost.total|floatformat:2 }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    {% else %}
+      <p class="muted">No resource groups yet for {{ current_tenant.name }}.</p>
+    {% endif %}
+  </div>
+
+  <p class="muted">On-prem costs use the <a href="{% url 'finops:rate_card' %}">rate card</a>. Azure costs and license costs read $0 until Cost Management and Helios are wired up — see <code>finops/providers.py</code>.</p>
+{% endif %}
 {% endblock %}

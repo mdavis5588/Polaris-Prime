@@ -20,7 +20,7 @@ class NsgInline(admin.TabularInline):
 class DeploymentInline(admin.TabularInline):
     model = ServiceDeployment
     extra = 0
-    fields = ("name", "vm_size", "vcpu", "ram_gb", "storage_gb", "status", "external_id", "console_url")
+    fields = ("name", "vm_size", "vcpu", "ram_gb", "storage_gb", "is_managed", "status", "external_id", "console_url")
     readonly_fields = ("status", "external_id", "console_url")
 
 
@@ -59,7 +59,7 @@ class SubnetAdmin(admin.ModelAdmin):
 
 @admin.register(ServiceDeployment)
 class ServiceDeploymentAdmin(admin.ModelAdmin):
-    list_display = ("name", "resource_group", "vm_size", "vcpu", "ram_gb", "storage_gb", "status", "created_at")
+    list_display = ("name", "resource_group", "vm_size", "vcpu", "ram_gb", "storage_gb", "is_managed", "status", "created_at")
     list_filter = ("status",)
     search_fields = ("name", "resource_group__name")
     readonly_fields = ("status", "error", "external_id", "console_url", "created_at")

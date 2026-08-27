@@ -163,6 +163,9 @@ class ServiceDeployment(models.Model):
     vcpu = models.PositiveIntegerField(default=1)
     ram_gb = models.PositiveIntegerField(default=1)
     storage_gb = models.PositiveIntegerField(default=1)
+    is_managed = models.BooleanField(
+        default=False, help_text="Polaris manages this service for the client — adds the on-prem rate card's managed-service cost in Orion. No effect on Azure deployments (Azure managed-service spend, once tracked, will come from Cost Management like everything else)."
+    )
 
     status = models.CharField(max_length=10, choices=ProvisioningStatus.choices, default=ProvisioningStatus.PENDING)
     error = models.TextField(blank=True)

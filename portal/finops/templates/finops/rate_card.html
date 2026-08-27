@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Rate card — Polaris Prime{% endblock %}
+{% block nav_finops %}active{% endblock %}
+{% block page_title %}On-prem rate card{% endblock %}
+{% block page_subtitle %}<p class="subtitle">What Orion assumes on-prem compute and managed services cost — applies platform-wide the moment you save</p>{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="post" class="inline">
+    {% csrf_token %}
+    <div>
+      <label for="rate-vcpu">Per vCPU / month</label>
+      <input id="rate-vcpu" type="text" inputmode="decimal" name="vcpu_monthly_rate" value="{{ card.vcpu_monthly_rate }}" required />
+    </div>
+    <div>
+      <label for="rate-ram">Per GB RAM / month</label>
+      <input id="rate-ram" type="text" inputmode="decimal" name="ram_gb_monthly_rate" value="{{ card.ram_gb_monthly_rate }}" required />
+    </div>
+    <div>
+      <label for="rate-storage">Per GB storage / month</label>
+      <input id="rate-storage" type="text" inputmode="decimal" name="storage_gb_monthly_rate" value="{{ card.storage_gb_monthly_rate }}" required />
+    </div>
+    <div>
+      <label for="rate-managed">Managed service / month (flat)</label>
+      <input id="rate-managed" type="text" inputmode="decimal" name="managed_service_monthly_rate" value="{{ card.managed_service_monthly_rate }}" required />
+    </div>
+    <button class="btn" type="submit">Save</button>
+  </form>
+  <p class="muted" style="margin-top:1rem;margin-bottom:0;">Last updated {{ card.updated_at }}. Applies to every on-prem server's compute cost immediately (vCPU/RAM/storage from the server's own specs); the managed-service rate only applies to servers flagged "Managed" in Networking.</p>
+</div>
+
+<a class="btn secondary" href="{% url 'finops:index' %}">Back to Orion</a>
+{% endblock %}

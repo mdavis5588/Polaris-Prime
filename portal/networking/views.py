@@ -154,6 +154,7 @@ def deployment_create(request, rg_pk):
         vcpu = request.POST.get("vcpu", "").strip()
         ram_gb = request.POST.get("ram_gb", "").strip()
         storage_gb = request.POST.get("storage_gb", "").strip()
+        is_managed = request.POST.get("is_managed") == "on"
         nsg_pk = request.POST.get("nsg")
         nsg = get_object_or_404(rg.nsgs, pk=nsg_pk) if nsg_pk else None
         if (
@@ -166,7 +167,7 @@ def deployment_create(request, rg_pk):
             and storage_gb.isdigit()
         ):
             deployment = services.create_deployment(
-                rg, nsg, name, vm_size, admin_username, admin_password, int(vcpu), int(ram_gb), int(storage_gb)
+                rg, nsg, name, vm_size, admin_username, admin_password, int(vcpu), int(ram_gb), int(storage_gb), is_managed
             )
             if deployment.status == "failed":
                 messages.error(request, f'Failed to deploy "{name}": {deployment.error}')

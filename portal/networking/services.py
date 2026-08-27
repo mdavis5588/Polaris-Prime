@@ -137,6 +137,7 @@ def create_deployment(
     vcpu: int,
     ram_gb: int,
     storage_gb: int,
+    is_managed: bool = False,
 ) -> ServiceDeployment:
     deployment = ServiceDeployment.objects.create(
         resource_group=rg,
@@ -147,6 +148,7 @@ def create_deployment(
         vcpu=vcpu,
         ram_gb=ram_gb,
         storage_gb=storage_gb,
+        is_managed=is_managed,
     )
 
     def action():

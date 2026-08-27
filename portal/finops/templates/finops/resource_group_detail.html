@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ rg.name }} costs — Polaris Prime{% endblock %}
+{% block nav_finops %}active{% endblock %}
+{% block page_title %}{{ rg.name }}{% endblock %}
+{% block page_subtitle %}<p class="subtitle">{{ rg.get_target_display }} · Total ${{ rg_total.total|floatformat:2 }}/mo</p>{% endblock %}
+{% block content %}
+<div class="card">
+  <h3 style="margin-top:0;">By server</h3>
+  {% if server_costs %}
+    <table>
+      <thead>
+        <tr><th>Server</th><th>vCPU</th><th>RAM (GB)</th><th>Storage (GB)</th><th>Managed</th><th>Compute</th><th>Managed services</th><th>Licensing</th><th>Total</th></tr>
+      </thead>
+      <tbody>
+        {% for deployment, cost in server_costs %}
+        <tr>
+          <td>{{ deployment.name }}</td>
+          <td>{{ deployment.vcpu }}</td>
+          <td>{{ deployment.ram_gb }}</td>
+          <td>{{ deployment.storage_gb }}</td>
+          <td>{% if deployment.is_managed %}Yes{% else %}—{% endif %}</td>
+          <td>${{ cost.compute|floatformat:2 }}</td>
+          <td>${{ cost.managed_service|floatformat:2 }}</td>
+          <td>${{ cost.license|floatformat:2 }}</td>
+          <td>${{ cost.total|floatformat:2 }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="muted">No servers deployed in this resource group yet.</p>
+  {% endif %}
+</div>
+
+<a class="btn secondary" href="{% url 'finops:index' %}">Back to Orion</a>
+{% endblock %}
