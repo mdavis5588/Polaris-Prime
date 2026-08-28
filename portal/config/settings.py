@@ -151,7 +151,15 @@ LOGOUT_REDIRECT_URL = "/"
 
 ACCOUNT_EMAIL_VERIFICATION = "none"
 ACCOUNT_LOGIN_METHODS = {"email"}
-ACCOUNT_SIGNUP_FIELDS = ["email*"]
+# "password1*" matters here beyond local signup: allauth's LoginForm only
+# renders a password field at all if password1 is among the signup
+# fields (see allauth.account.forms.LoginForm._setup_password_field) —
+# without it, login silently falls back to a passwordless "login by
+# code" email flow, which then fails outright since no SMTP backend is
+# configured. Real users sign in with Microsoft; this only matters for
+# local/admin accounts (e.g. a superuser created for testing before
+# Azure AD is wired up).
+ACCOUNT_SIGNUP_FIELDS = ["email*", "password1*"]
 SOCIALACCOUNT_LOGIN_ON_GET = True
 SOCIALACCOUNT_ADAPTER = "accounts.adapter.SocialAccountAdapter"
 

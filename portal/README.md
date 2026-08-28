@@ -44,7 +44,13 @@ admin (`/admin/`) works with a superuser account, without any Azure AD
 config. Sign-in with Microsoft simply doesn't offer itself as an option
 until `AZURE_AD_CLIENT_ID`/`AZURE_AD_CLIENT_SECRET`/`AZURE_AD_TENANT_ID`
 are all set — same "commented out until configured" philosophy as the
-Backstage version's `.env.example`.
+Backstage version's `.env.example`. In the meantime, sign in with the
+superuser account at the site's own `/accounts/login/` (not just
+`/admin/`) using its email and password — a local-account login form is
+always shown there alongside (or instead of) the Microsoft button. A
+superuser bypasses the AD group check entirely and sees every tenant in
+the switcher (`tenants/services.py`: `get_my_tenants`), so Networking
+and Orion are fully usable before Azure AD is wired up at all.
 
 ## Deploying (single VM, Docker Compose)
 

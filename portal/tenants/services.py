@@ -21,10 +21,20 @@ def get_my_tenants(user: AbstractBaseUser) -> list[Tenant]:
     """
     The signed-in user's real, access-controlled tenant list — their AD
     object id's live Graph group memberships, cross-referenced against
-    configured Tenant.ad_group_id values. Returns [] for anyone without a
-    Microsoft account linked (including superusers signed in via the
-    plain Django admin login) or if Graph isn't configured yet.
+    configured Tenant.ad_group_id values.
+
+    Superusers see every tenant, bypassing the AD group check entirely —
+    they already have unrestricted access to every Tenant/ResourceGroup
+    row via /admin/, so this isn't a privilege escalation, and it's what
+    makes Networking/Orion usable for a local account before Azure AD
+    sign-in and Graph are configured at all.
+
+    Everyone else gets [] without a Microsoft account linked, or if
+    Graph isn't configured yet.
     """
+    if user.is_superuser:
+        return list(Tenant.objects.select_related("client").all())
+
     ad_object_id = get_ad_object_id(user)
     if not ad_object_id:
         return []
