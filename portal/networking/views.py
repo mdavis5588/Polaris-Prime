@@ -35,7 +35,7 @@ def resource_group_create(request):
 
 
 @login_required
-def resource_group_discover(request, target):
+def resource_group_sync(request, target):
     tenant = get_current_tenant(request)
     if request.method == "POST" and tenant and target in ("azure", "onprem"):
         if target == "azure" and not tenant.has_azure:
@@ -44,15 +44,23 @@ def resource_group_discover(request, target):
             messages.error(request, "This tenant has no on-prem resource pool configured.")
         else:
             try:
-                imported = services.discover_resource_groups(tenant, target)
+                result = services.reconcile_resource_groups(tenant, target)
             except Exception as exc:  # noqa: BLE001 — surfaced to the user, not a 500
-                messages.error(request, f"Discovery failed: {exc}")
+                messages.error(request, f"Sync failed: {exc}")
             else:
-                if imported:
-                    names = ", ".join(rg.name for rg in imported)
-                    messages.success(request, f"Imported {len(imported)} resource group(s): {names}.")
+                imported_rgs = len(result["imported_rgs"])
+                gone_rgs = len(result["gone_rgs"])
+                imported_children = result["imported_children"]
+                gone_children = result["gone_children"]
+                if imported_rgs or gone_rgs or imported_children or gone_children:
+                    parts = []
+                    if imported_rgs or imported_children:
+                        parts.append(f"imported {imported_rgs} resource group(s) and {imported_children} child resource(s)")
+                    if gone_rgs or gone_children:
+                        parts.append(f"marked {gone_rgs} resource group(s) and {gone_children} child resource(s) as gone")
+                    messages.success(request, f"Sync complete — {'; '.join(parts)}.")
                 else:
-                    messages.success(request, "No new resource groups found — everything visible is already tracked.")
+                    messages.success(request, "Sync complete — nothing changed, everything visible is already tracked.")
     return redirect("networking:index")
 
 

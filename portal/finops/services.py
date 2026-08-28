@@ -64,10 +64,15 @@ def get_deployment_cost(deployment: ServiceDeployment) -> CostBreakdown:
 
 
 def get_resource_group_cost(resource_group: ResourceGroup) -> CostBreakdown:
-    total = ZERO_COST
-    for deployment in resource_group.deployments.all():
-        total = total + get_deployment_cost(deployment)
-    return total
+    # A GONE resource group (see networking/services.py: reconcile_resource_groups)
+    # doesn't exist for real any more — kept in Postgres as an audit
+    # trail, but never billed. Its deployments are cascaded to GONE in
+    # the same reconciliation pass, so excluding GONE deployments here
+    # too is belt-and-suspenders for the rare row that goes stale outside
+    # a full reconcile.
+    if resource_group.status == "gone":
+        return ZERO_COST
+    return sum_costs(get_deployment_cost(d) for d in resource_group.deployments.exclude(status="gone"))
 
 
 def get_tenant_cost(tenant: Tenant) -> CostBreakdown:

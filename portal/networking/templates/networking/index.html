@@ -33,16 +33,16 @@
   </div>
 
   <div class="card">
-    <h3 style="margin-top:0;">Discover existing resource groups</h3>
-    <p class="muted">Find resource groups that already exist for {{ current_tenant.name }} but weren't created through Polaris — access is what scopes results to this tenant (Azure RBAC, or the tenant's NetBox site), not anything read here.</p>
+    <h3 style="margin-top:0;">Sync with Azure / NetBox</h3>
+    <p class="muted">Imports resource groups (and their subnets, NSGs, rules, and deployments) that exist for {{ current_tenant.name }} but weren't created through Polaris, and marks anything Polaris tracks that no longer exists as Gone. Access is what scopes results to this tenant (Azure RBAC, or the tenant's NetBox site), not anything read here.</p>
     <div style="display:flex;gap:0.75rem;">
-      <form method="post" action="{% url 'networking:resource_group_discover' 'azure' %}">
+      <form method="post" action="{% url 'networking:resource_group_sync' 'azure' %}">
         {% csrf_token %}
-        <button class="btn secondary" type="submit" {% if not current_tenant.has_azure %}disabled{% endif %}>Discover from Azure</button>
+        <button class="btn secondary" type="submit" {% if not current_tenant.has_azure %}disabled{% endif %}>Sync with Azure</button>
       </form>
-      <form method="post" action="{% url 'networking:resource_group_discover' 'onprem' %}">
+      <form method="post" action="{% url 'networking:resource_group_sync' 'onprem' %}">
         {% csrf_token %}
-        <button class="btn secondary" type="submit" {% if not current_tenant.has_onprem %}disabled{% endif %}>Discover from NetBox</button>
+        <button class="btn secondary" type="submit" {% if not current_tenant.has_onprem %}disabled{% endif %}>Sync with NetBox</button>
       </form>
     </div>
   </div>

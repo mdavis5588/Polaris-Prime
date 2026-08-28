@@ -16,6 +16,13 @@ class ProvisioningStatus(models.TextChoices):
     ACTIVE = "active", "Active"
     FAILED = "failed", "Failed"
     DELETING = "deleting", "Deleting"
+    # Reconciliation (see networking/services.py: reconcile_resource_groups)
+    # found this row's real-world counterpart no longer exists in
+    # Azure/NetBox. Never set by Polaris deleting something itself — that's
+    # DELETING, in progress, followed by the row actually being removed.
+    # GONE rows are kept (not deleted) as an audit trail and excluded from
+    # Orion's cost totals.
+    GONE = "gone", "Gone"
 
 
 class Target(models.TextChoices):

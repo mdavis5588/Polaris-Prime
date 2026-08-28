@@ -17,7 +17,19 @@ typically) — NetBox itself only holds the desired state.
 
 import re
 
-from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, DiscoveredResourceGroup, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
+from .base import (
+    DeploymentProvider,
+    DeploymentResult,
+    DeploymentSpec,
+    DiscoveredDeployment,
+    DiscoveredNsg,
+    DiscoveredResourceGroup,
+    DiscoveredSubnet,
+    NetworkProvider,
+    ProviderNotConfigured,
+    RuleSpec,
+    SubnetResult,
+)
 from .netbox import NetBoxClient, read_netbox_settings
 
 _RG_ID_RE = re.compile(r"^netbox:vlan=(\d+)$")
@@ -58,6 +70,30 @@ def _decode_nsg_id(external_id: str) -> int:
     return int(match.group(1))
 
 
+def _prefix_value(value) -> str:
+    if not value:
+        return "*"
+    if isinstance(value, dict):
+        return value.get("prefix", "*")
+    return value
+
+
+def _port_value(value) -> str:
+    if not value:
+        return "*"
+    if isinstance(value, list):
+        return str(value[0]) if value else "*"
+    return str(value)
+
+
+def _subnet_name(prefix: dict) -> str:
+    """NetBox prefixes don't have a dedicated 'name' field the way VLANs/access lists do — description if set, otherwise a slug derived from the CIDR itself."""
+    description = (prefix.get("description") or "").strip()
+    if description:
+        return description
+    return re.sub(r"[^a-z0-9]+", "-", prefix["prefix"].lower()).strip("-")
+
+
 class OnPremNetworkProvider(NetworkProvider):
     def __init__(self, site_id: int | None):
         self._client = NetBoxClient(read_netbox_settings())
@@ -84,6 +120,13 @@ class OnPremNetworkProvider(NetworkProvider):
     def delete_subnet(self, resource_group_external_id: str, external_id: str) -> None:
         self._client.delete_prefix(_decode_subnet_id(external_id))
 
+    def list_subnets(self, resource_group_external_id: str) -> list[DiscoveredSubnet]:
+        vlan_id = _decode_rg_id(resource_group_external_id)
+        return [
+            DiscoveredSubnet(external_id=_encode_subnet_id(prefix["id"]), name=_subnet_name(prefix), cidr=prefix["prefix"])
+            for prefix in self._client.list_prefixes_for_vlan(vlan_id)
+        ]
+
     def create_nsg(self, resource_group_external_id: str, name: str) -> str:
         vlan_id = _decode_rg_id(resource_group_external_id)
         acl = self._client.create_access_list(name, vlan_id)
@@ -92,11 +135,47 @@ class OnPremNetworkProvider(NetworkProvider):
     def delete_nsg(self, external_id: str) -> None:
         self._client.delete_access_list(_decode_nsg_id(external_id))
 
+    def list_nsgs(self, resource_group_external_id: str) -> list[DiscoveredNsg]:
+        vlan_id = _decode_rg_id(resource_group_external_id)
+        return [
+            DiscoveredNsg(external_id=_encode_nsg_id(acl["id"]), name=acl["name"])
+            for acl in self._client.list_access_lists_for_vlan(vlan_id)
+        ]
+
     def add_rule(self, nsg_external_id: str, rule: RuleSpec) -> None:
         self._client.create_access_list_rule(_decode_nsg_id(nsg_external_id), rule)
 
     def remove_rule(self, nsg_external_id: str, rule_name: str) -> None:
         self._client.delete_access_list_rule_by_name(_decode_nsg_id(nsg_external_id), rule_name)
+
+    def list_rules(self, nsg_external_id: str) -> list[RuleSpec]:
+        """
+        Best-effort: netbox-acls rules don't carry a direction the way
+        Azure NSG rules do (it's implicit in the ACL's own placement), so
+        every discovered rule comes back "inbound" — same reasoning as
+        create_access_list_rule not sending one. source_prefix/
+        destination_prefix may come back from a real instance as a
+        related-object dict rather than a plain string (unlike what POST
+        accepts) — see netbox.py's plugin-stability caveat; this handles
+        both shapes.
+        """
+        acl_id = _decode_nsg_id(nsg_external_id)
+        discovered = []
+        for rule in self._client.list_access_list_rules(acl_id):
+            discovered.append(
+                RuleSpec(
+                    name=rule.get("description") or f"rule-{rule['id']}",
+                    priority=rule.get("index", 0),
+                    direction="inbound",
+                    access="allow" if rule.get("action") == "permit" else "deny",
+                    protocol=rule.get("protocol") or "*",
+                    source_address_prefix=_prefix_value(rule.get("source_prefix")),
+                    source_port_range=_port_value(rule.get("source_ports")),
+                    destination_address_prefix=_prefix_value(rule.get("destination_prefix")),
+                    destination_port_range=_port_value(rule.get("destination_ports")),
+                )
+            )
+        return discovered
 
 
 class OnPremDeploymentProvider(DeploymentProvider):
@@ -113,4 +192,7 @@ class OnPremDeploymentProvider(DeploymentProvider):
         raise ProviderNotConfigured(self._NOT_CONFIGURED)
 
     def delete_deployment(self, resource_group_external_id: str, external_id: str) -> None:
+        raise ProviderNotConfigured(self._NOT_CONFIGURED)
+
+    def list_deployments(self, resource_group_external_id: str) -> list[DiscoveredDeployment]:
         raise ProviderNotConfigured(self._NOT_CONFIGURED)

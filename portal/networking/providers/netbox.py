@@ -121,6 +121,9 @@ class NetBoxClient:
     def delete_prefix(self, prefix_id: int) -> None:
         self._request("DELETE", f"/api/ipam/prefixes/{prefix_id}/")
 
+    def list_prefixes_for_vlan(self, vlan_id: int) -> list[dict]:
+        return self._request("GET", f"/api/ipam/prefixes/?vlan_id={vlan_id}&limit=0")["results"]
+
     def create_access_list(self, name: str, vlan_id: int) -> dict:
         return self._request(
             "POST",
@@ -136,6 +139,11 @@ class NetBoxClient:
 
     def delete_access_list(self, access_list_id: int) -> None:
         self._request("DELETE", f"/api/plugins/access-lists/access-lists/{access_list_id}/")
+
+    def list_access_lists_for_vlan(self, vlan_id: int) -> list[dict]:
+        return self._request(
+            "GET", f"/api/plugins/access-lists/access-lists/?assigned_object_type=ipam.vlan&assigned_object_id={vlan_id}&limit=0"
+        )["results"]
 
     def create_access_list_rule(self, access_list_id: int, rule: RuleSpec) -> dict:
         return self._request(
@@ -161,3 +169,6 @@ class NetBoxClient:
         if not match:
             raise RuntimeError(f'No access list rule named "{rule_name}" found on access list {access_list_id}')
         self._request("DELETE", f"/api/plugins/access-lists/access-list-rules/{match['id']}/")
+
+    def list_access_list_rules(self, access_list_id: int) -> list[dict]:
+        return self._request("GET", f"/api/plugins/access-lists/access-list-rules/?access_list_id={access_list_id}&limit=0")["results"]

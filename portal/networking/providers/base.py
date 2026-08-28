@@ -37,6 +37,19 @@ class DiscoveredResourceGroup:
 
 
 @dataclass
+class DiscoveredSubnet:
+    external_id: str
+    name: str
+    cidr: str
+
+
+@dataclass
+class DiscoveredNsg:
+    external_id: str
+    name: str
+
+
+@dataclass
 class DeploymentSpec:
     name: str
     vm_size: str
@@ -49,6 +62,19 @@ class DeploymentSpec:
 class DeploymentResult:
     external_id: str
     console_url: str
+
+
+@dataclass
+class DiscoveredDeployment:
+    external_id: str
+    name: str
+    vm_size: str
+    admin_username: str
+    vcpu: int
+    ram_gb: int
+    storage_gb: int
+    console_url: str
+    nsg_external_id: str | None = None
 
 
 class ProviderNotConfigured(RuntimeError):
@@ -70,7 +96,7 @@ class NetworkProvider(ABC):
         Azure, whatever the tenant's service principal has RBAC access to
         in the shared subscription (not filtered by tag or anything else
         Polaris controls: access is the scoping mechanism, by design — see
-        networking/services.py: discover_resource_groups). For on-prem,
+        networking/services.py: reconcile_resource_groups). For on-prem,
         every VLAN in the configured NetBox group/site.
         """
 
@@ -81,6 +107,9 @@ class NetworkProvider(ABC):
     def delete_subnet(self, resource_group_external_id: str, external_id: str) -> None: ...
 
     @abstractmethod
+    def list_subnets(self, resource_group_external_id: str) -> list[DiscoveredSubnet]: ...
+
+    @abstractmethod
     def create_nsg(self, resource_group_external_id: str, name: str) -> str:
         """Returns the new NSG's external_id."""
 
@@ -88,10 +117,16 @@ class NetworkProvider(ABC):
     def delete_nsg(self, external_id: str) -> None: ...
 
     @abstractmethod
+    def list_nsgs(self, resource_group_external_id: str) -> list[DiscoveredNsg]: ...
+
+    @abstractmethod
     def add_rule(self, nsg_external_id: str, rule: RuleSpec) -> None: ...
 
     @abstractmethod
     def remove_rule(self, nsg_external_id: str, rule_name: str) -> None: ...
+
+    @abstractmethod
+    def list_rules(self, nsg_external_id: str) -> list[RuleSpec]: ...
 
 
 class DeploymentProvider(ABC):
@@ -100,3 +135,16 @@ class DeploymentProvider(ABC):
 
     @abstractmethod
     def delete_deployment(self, resource_group_external_id: str, external_id: str) -> None: ...
+
+    @abstractmethod
+    def list_deployments(self, resource_group_external_id: str) -> list[DiscoveredDeployment]:
+        """
+        Raises ProviderNotConfigured if this target has no way to
+        enumerate deployments at all (on-prem: no orchestrator exists yet
+        — see onprem.py) — distinct from returning an empty list, which
+        means "asked, and there are genuinely none." Reconciliation
+        (services.py) treats the two very differently: an empty list
+        marks every currently-tracked deployment GONE; a raised
+        ProviderNotConfigured leaves them untouched, since there'd be no
+        way to know whether they're still real.
+        """

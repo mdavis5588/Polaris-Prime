@@ -202,6 +202,7 @@ th, td { text-align: left; padding: 0.5rem 0.6rem; border-bottom: 1px solid var(
 .status-pending { background: #d97706; }
 .status-failed { background: var(--error); }
 .status-deleting { background: var(--text-muted); }
+.status-gone { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
 
 .messages { list-style: none; padding: 0; margin: 0 0 1rem; }
 .messages li {

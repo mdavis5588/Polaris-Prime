@@ -86,14 +86,30 @@ Backstage version's `.env.example`.
   Azure credentials.
 
   Polaris's own Postgres database is the only source of truth for which
-  tenant a Resource Group belongs to — nothing about that tie is read
-  from Azure or NetBox, so a Resource Group created outside Polaris
-  (directly in the Azure Portal, or as a VLAN provisioned by hand in
-  NetBox) is invisible to it by default. The "Discover" buttons on the
-  Networking page (`resource_group_discover` in `views.py`,
-  `discover_resource_groups` in `services.py`) close that gap by asking
-  each provider what it can see — `NetworkProvider.list_resource_groups()`
-  — and importing anything not already tracked (matched by external id).
+  tenant a Resource Group (or Subnet, NSG, rule, deployment) belongs to
+  — nothing about that tie is read from Azure or NetBox, so a resource
+  created outside Polaris (directly in the Azure Portal, or by hand in
+  NetBox) is invisible to it by default, and a resource *deleted*
+  outside Polaris stays listed as if nothing happened. The "Sync"
+  buttons on the Networking page (`resource_group_sync` in `views.py`,
+  `reconcile_resource_groups` in `services.py`) close both gaps at
+  once, recursively: for every resource group (imported or already
+  tracked), it also asks the provider for that RG's subnets, NSGs,
+  rules, and deployments — importing anything new, and marking anything
+  Polaris tracks as `ProvisioningStatus.GONE` (a new status; see
+  `models.py`) if the provider no longer reports it. GONE is never a
+  hard delete — the row stays as an audit trail and is excluded from
+  Orion's cost totals, but only disappears from Postgres if someone
+  deletes it by hand (which, for a GONE row, just removes the Postgres
+  record — there's nothing left to ask the provider to delete). When an
+  RG itself goes GONE, its still-active children are cascaded to GONE
+  in the same pass rather than left pointing at a parent that no longer
+  exists. On-prem deployments are the one exception: `OnPremDeploymentProvider`
+  has no orchestrator to enumerate against, so its `list_deployments`
+  raises `ProviderNotConfigured` — reconciliation catches that
+  specifically and leaves on-prem deployment rows untouched, rather
+  than treating "can't check" the same as "there are none."
+
   Deliberately *not* tag-based: with every tenant's resource groups
   living in one shared Azure subscription (see `tenants` above), the
   thing that has to scope results to the right tenant is the tenant's

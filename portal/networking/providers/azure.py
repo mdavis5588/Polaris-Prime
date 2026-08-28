@@ -25,9 +25,22 @@ from azure.mgmt.resource.resources import ResourceManagementClient
 
 from tenants.models import Tenant
 
-from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, DiscoveredResourceGroup, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
+from .base import (
+    DeploymentProvider,
+    DeploymentResult,
+    DeploymentSpec,
+    DiscoveredDeployment,
+    DiscoveredNsg,
+    DiscoveredResourceGroup,
+    DiscoveredSubnet,
+    NetworkProvider,
+    ProviderNotConfigured,
+    RuleSpec,
+    SubnetResult,
+)
 
 _PROTOCOL_MAP = {"tcp": "Tcp", "udp": "Udp", "*": "*"}
+_REVERSE_PROTOCOL_MAP = {"Tcp": "tcp", "Udp": "udp", "*": "*"}
 
 # A generic, well-known default so a deployment works out of the box
 # without asking the user to pick a marketplace image for a plain IaaS VM.
@@ -136,6 +149,20 @@ class AzureNetworkProvider(NetworkProvider):
         rg_name = _resource_group_name_from_id(resource_group_external_id)
         self._network_client.subnets.begin_delete(rg_name, f"{rg_name}-vnet", _last_segment(external_id)).result()
 
+    def list_subnets(self, resource_group_external_id: str) -> list[DiscoveredSubnet]:
+        """
+        Every subnet in every VNet in the resource group — not just the
+        single `{rg_name}-vnet` this provider itself creates, since a
+        discovered/imported resource group may have any VNet layout at
+        all.
+        """
+        rg_name = _resource_group_name_from_id(resource_group_external_id)
+        discovered = []
+        for vnet in self._network_client.virtual_networks.list(rg_name):
+            for subnet in self._network_client.subnets.list(rg_name, vnet.name):
+                discovered.append(DiscoveredSubnet(external_id=subnet.id, name=subnet.name, cidr=subnet.address_prefix or ""))
+        return discovered
+
     def create_nsg(self, resource_group_external_id: str, name: str) -> str:
         rg_name = _resource_group_name_from_id(resource_group_external_id)
         nsg = self._network_client.network_security_groups.begin_create_or_update(
@@ -146,6 +173,13 @@ class AzureNetworkProvider(NetworkProvider):
     def delete_nsg(self, external_id: str) -> None:
         rg_name = _resource_group_name_from_id(external_id)
         self._network_client.network_security_groups.begin_delete(rg_name, _last_segment(external_id)).result()
+
+    def list_nsgs(self, resource_group_external_id: str) -> list[DiscoveredNsg]:
+        rg_name = _resource_group_name_from_id(resource_group_external_id)
+        return [
+            DiscoveredNsg(external_id=nsg.id, name=nsg.name)
+            for nsg in self._network_client.network_security_groups.list(rg_name)
+        ]
 
     def add_rule(self, nsg_external_id: str, rule: RuleSpec) -> None:
         rg_name = _resource_group_name_from_id(nsg_external_id)
@@ -170,6 +204,27 @@ class AzureNetworkProvider(NetworkProvider):
         rg_name = _resource_group_name_from_id(nsg_external_id)
         nsg_name = _last_segment(nsg_external_id)
         self._network_client.security_rules.begin_delete(rg_name, nsg_name, rule_name).result()
+
+    def list_rules(self, nsg_external_id: str) -> list[RuleSpec]:
+        """Azure's security_rules.list only returns custom rules — the NSG's built-in default_security_rules (AllowVnetInBound etc.) are a separate API and aren't included here, matching how this provider never lets Polaris manage them."""
+        rg_name = _resource_group_name_from_id(nsg_external_id)
+        nsg_name = _last_segment(nsg_external_id)
+        discovered = []
+        for rule in self._network_client.security_rules.list(rg_name, nsg_name):
+            discovered.append(
+                RuleSpec(
+                    name=rule.name,
+                    priority=rule.priority,
+                    direction="inbound" if rule.direction == "Inbound" else "outbound",
+                    access="allow" if rule.access == "Allow" else "deny",
+                    protocol=_REVERSE_PROTOCOL_MAP.get(rule.protocol, "*"),
+                    source_address_prefix=rule.source_address_prefix or "*",
+                    source_port_range=rule.source_port_range or "*",
+                    destination_address_prefix=rule.destination_address_prefix or "*",
+                    destination_port_range=rule.destination_port_range or "*",
+                )
+            )
+        return discovered
 
 
 class AzureDeploymentProvider(DeploymentProvider):
@@ -228,3 +283,51 @@ class AzureDeploymentProvider(DeploymentProvider):
         # deleting it requires knowing it's not in use by anything else,
         # and ARM will refuse resource group deletion with orphaned NICs
         # attached to nothing, not the other way around.
+
+    def list_deployments(self, resource_group_external_id: str) -> list[DiscoveredDeployment]:
+        """
+        Every VM in the resource group, with vcpu/ram_gb inferred from an
+        Azure-published vm_size -> {cores, memory} lookup (VMs don't
+        report their own spec directly) and storage_gb summed from the OS
+        disk plus any data disks. Best-effort on the NSG attachment — only
+        the primary NIC's first IP config is checked, matching how this
+        provider's own create_deployment only ever creates one.
+        """
+        rg_name = _resource_group_name_from_id(resource_group_external_id)
+        size_specs = {size.name: size for size in self._compute_client.virtual_machine_sizes.list(self._location)}
+
+        discovered = []
+        for vm in self._compute_client.virtual_machines.list(rg_name):
+            size = size_specs.get(vm.hardware_profile.vm_size) if vm.hardware_profile else None
+            vcpu = size.number_of_cores if size else 0
+            ram_gb = round(size.memory_in_mb / 1024) if size else 0
+
+            storage_gb = 0
+            if vm.storage_profile:
+                if vm.storage_profile.os_disk and vm.storage_profile.os_disk.disk_size_gb:
+                    storage_gb += vm.storage_profile.os_disk.disk_size_gb
+                for data_disk in vm.storage_profile.data_disks or []:
+                    if data_disk.disk_size_gb:
+                        storage_gb += data_disk.disk_size_gb
+
+            nsg_external_id = None
+            if vm.network_profile and vm.network_profile.network_interfaces:
+                nic_id = vm.network_profile.network_interfaces[0].id
+                nic = self._network_client.network_interfaces.get(_resource_group_name_from_id(nic_id), _last_segment(nic_id))
+                if nic.network_security_group:
+                    nsg_external_id = nic.network_security_group.id
+
+            discovered.append(
+                DiscoveredDeployment(
+                    external_id=vm.id,
+                    name=vm.name,
+                    vm_size=vm.hardware_profile.vm_size if vm.hardware_profile else "",
+                    admin_username=(vm.os_profile.admin_username if vm.os_profile else "") or "",
+                    vcpu=vcpu,
+                    ram_gb=ram_gb,
+                    storage_gb=storage_gb,
+                    console_url=f"https://portal.azure.com/#@{self._tenant_id}/resource{vm.id}/overview",
+                    nsg_external_id=nsg_external_id,
+                )
+            )
+        return discovered
