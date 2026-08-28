@@ -31,6 +31,12 @@ class SubnetResult:
 
 
 @dataclass
+class DiscoveredResourceGroup:
+    external_id: str
+    name: str
+
+
+@dataclass
 class DeploymentSpec:
     name: str
     vm_size: str
@@ -56,6 +62,17 @@ class NetworkProvider(ABC):
 
     @abstractmethod
     def delete_resource_group(self, external_id: str) -> None: ...
+
+    @abstractmethod
+    def list_resource_groups(self) -> list[DiscoveredResourceGroup]:
+        """
+        Every resource group this provider's credential can see — for
+        Azure, whatever the tenant's service principal has RBAC access to
+        in the shared subscription (not filtered by tag or anything else
+        Polaris controls: access is the scoping mechanism, by design — see
+        networking/services.py: discover_resource_groups). For on-prem,
+        every VLAN in the configured NetBox group/site.
+        """
 
     @abstractmethod
     def create_subnet(self, resource_group_external_id: str, name: str) -> SubnetResult: ...

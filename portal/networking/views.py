@@ -35,6 +35,28 @@ def resource_group_create(request):
 
 
 @login_required
+def resource_group_discover(request, target):
+    tenant = get_current_tenant(request)
+    if request.method == "POST" and tenant and target in ("azure", "onprem"):
+        if target == "azure" and not tenant.has_azure:
+            messages.error(request, "This tenant has no Azure account configured.")
+        elif target == "onprem" and not tenant.has_onprem:
+            messages.error(request, "This tenant has no on-prem resource pool configured.")
+        else:
+            try:
+                imported = services.discover_resource_groups(tenant, target)
+            except Exception as exc:  # noqa: BLE001 — surfaced to the user, not a 500
+                messages.error(request, f"Discovery failed: {exc}")
+            else:
+                if imported:
+                    names = ", ".join(rg.name for rg in imported)
+                    messages.success(request, f"Imported {len(imported)} resource group(s): {names}.")
+                else:
+                    messages.success(request, "No new resource groups found — everything visible is already tracked.")
+    return redirect("networking:index")
+
+
+@login_required
 def resource_group_detail(request, pk):
     rg = get_object_or_404(ResourceGroup, pk=pk, tenant=get_current_tenant(request))
     return render(

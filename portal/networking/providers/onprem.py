@@ -17,7 +17,7 @@ typically) — NetBox itself only holds the desired state.
 
 import re
 
-from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
+from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, DiscoveredResourceGroup, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
 from .netbox import NetBoxClient, read_netbox_settings
 
 _RG_ID_RE = re.compile(r"^netbox:vlan=(\d+)$")
@@ -69,6 +69,12 @@ class OnPremNetworkProvider(NetworkProvider):
 
     def delete_resource_group(self, external_id: str) -> None:
         self._client.delete_vlan(_decode_rg_id(external_id))
+
+    def list_resource_groups(self) -> list[DiscoveredResourceGroup]:
+        return [
+            DiscoveredResourceGroup(external_id=_encode_rg_id(vlan["id"]), name=vlan["name"])
+            for vlan in self._client.list_vlans(self._site_id)
+        ]
 
     def create_subnet(self, resource_group_external_id: str, name: str) -> SubnetResult:
         vlan_id = _decode_rg_id(resource_group_external_id)

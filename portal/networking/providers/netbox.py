@@ -86,6 +86,18 @@ class NetBoxClient:
                 return vid
         raise RuntimeError(f"No free VLAN id in range {self._s.vlan_id_range_start}-{self._s.vlan_id_range_end}")
 
+    def list_vlans(self, site_id: int | None) -> list[dict]:
+        """
+        Every VLAN in the configured group, scoped to site_id when given
+        — the shared NetBox instance's site is what scopes VLANs to a
+        tenant here, the same role Azure RBAC plays for the Azure
+        provider's list_resource_groups.
+        """
+        query = f"/api/ipam/vlans/?group_id={self._s.vlan_group_id}&limit=0"
+        if site_id is not None:
+            query += f"&site_id={site_id}"
+        return self._request("GET", query)["results"]
+
     def create_vlan(self, name: str, site_id: int | None) -> dict:
         vid = self._next_available_vid()
         return self._request(

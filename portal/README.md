@@ -85,6 +85,24 @@ Backstage version's `.env.example`.
   provisioning needs, and the tenants app entry above for per-tenant
   Azure credentials.
 
+  Polaris's own Postgres database is the only source of truth for which
+  tenant a Resource Group belongs to — nothing about that tie is read
+  from Azure or NetBox, so a Resource Group created outside Polaris
+  (directly in the Azure Portal, or as a VLAN provisioned by hand in
+  NetBox) is invisible to it by default. The "Discover" buttons on the
+  Networking page (`resource_group_discover` in `views.py`,
+  `discover_resource_groups` in `services.py`) close that gap by asking
+  each provider what it can see — `NetworkProvider.list_resource_groups()`
+  — and importing anything not already tracked (matched by external id).
+  Deliberately *not* tag-based: with every tenant's resource groups
+  living in one shared Azure subscription (see `tenants` above), the
+  thing that has to scope results to the right tenant is the tenant's
+  own service principal's Azure RBAC role assignments (only Reader/
+  Contributor on its own resource groups, not the whole subscription) —
+  a subscription-wide credential would see every tenant's resource
+  groups here, tag or no tag. On-prem is scoped the equivalent way, via
+  `Tenant.netbox_site_id` rather than RBAC.
+
   For finops (Orion) purposes, cost attribution down to tenant → resource
   group → server doesn't need a separate tagging system — it's already a
   real FK chain (`ServiceDeployment.resource_group.tenant`). What *is*

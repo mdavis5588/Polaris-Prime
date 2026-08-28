@@ -25,7 +25,7 @@ from azure.mgmt.resource.resources import ResourceManagementClient
 
 from tenants.models import Tenant
 
-from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
+from .base import DeploymentProvider, DeploymentResult, DeploymentSpec, DiscoveredResourceGroup, NetworkProvider, ProviderNotConfigured, RuleSpec, SubnetResult
 
 _PROTOCOL_MAP = {"tcp": "Tcp", "udp": "Udp", "*": "*"}
 
@@ -110,6 +110,18 @@ class AzureNetworkProvider(NetworkProvider):
 
     def delete_resource_group(self, external_id: str) -> None:
         self._resource_client.resource_groups.begin_delete(_resource_group_name_from_id(external_id)).result()
+
+    def list_resource_groups(self) -> list[DiscoveredResourceGroup]:
+        """
+        Everything this tenant's service principal has RBAC visibility
+        into within the shared subscription — with one subscription
+        holding every tenant's resource groups, RBAC (role assignments
+        scoped to specific resource groups, not the whole subscription)
+        is what has to do the tenant-scoping, not anything this call
+        does. A service principal with subscription-wide access would see
+        every tenant's resource groups here, tags or no tags.
+        """
+        return [DiscoveredResourceGroup(external_id=rg.id, name=rg.name) for rg in self._resource_client.resource_groups.list()]
 
     def create_subnet(self, resource_group_external_id: str, name: str) -> SubnetResult:
         rg_name = _resource_group_name_from_id(resource_group_external_id)

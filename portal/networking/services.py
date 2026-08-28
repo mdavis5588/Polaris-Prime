@@ -53,6 +53,41 @@ def delete_resource_group(rg: ResourceGroup) -> None:
     rg.delete()
 
 
+def discover_resource_groups(tenant: Tenant, target: str) -> list[ResourceGroup]:
+    """
+    Resource groups that exist for real (in Azure, or as NetBox VLANs)
+    but weren't created through Polaris — access is what scopes these to
+    the right tenant, not anything read here: a tenant's Azure service
+    principal only sees what RBAC grants it in the shared subscription,
+    and on-prem is scoped by Tenant.netbox_site_id. Anything already
+    tracked (matched by external_id) is skipped; everything else is
+    imported as a new, already-"active" ResourceGroup row so it shows up
+    in Networking and gets costed in Orion.
+    """
+    provider = get_network_provider(tenant, target)
+    known_external_ids = set(
+        ResourceGroup.objects.filter(tenant=tenant, target=target).values_list("external_id", flat=True)
+    )
+
+    imported = []
+    for found in provider.list_resource_groups():
+        if found.external_id in known_external_ids:
+            continue
+
+        name = found.name
+        suffix = 1
+        while ResourceGroup.objects.filter(tenant=tenant, name=name).exists():
+            suffix += 1
+            name = f"{found.name}-{suffix}"
+
+        imported.append(
+            ResourceGroup.objects.create(
+                tenant=tenant, target=target, name=name, external_id=found.external_id, status=ProvisioningStatus.ACTIVE
+            )
+        )
+    return imported
+
+
 def create_subnet(rg: ResourceGroup, name: str) -> Subnet:
     subnet = Subnet.objects.create(resource_group=rg, name=name)
 
