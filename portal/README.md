@@ -46,6 +46,37 @@ until `AZURE_AD_CLIENT_ID`/`AZURE_AD_CLIENT_SECRET`/`AZURE_AD_TENANT_ID`
 are all set — same "commented out until configured" philosophy as the
 Backstage version's `.env.example`.
 
+## Deploying (single VM, Docker Compose)
+
+`docker-compose.yml` runs the whole thing — Postgres (`db`) and the
+Django app itself behind gunicorn (`web`, built from the `Dockerfile`,
+serving its own static files via WhiteNoise — no separate nginx needed
+for a simple single-VM setup). On the VM:
+
+```sh
+git clone <repo-url> && cd Polaris-Prime/portal
+cp .env.example .env
+# edit .env for real: a random DJANGO_SECRET_KEY, DJANGO_DEBUG=false,
+# DJANGO_ALLOWED_HOSTS=<vm-ip-or-domain>, a real POSTGRES_PASSWORD,
+# and whichever of AZURE_AD_*/NETBOX_* you're ready to turn on
+
+docker compose up -d --build
+docker compose exec web python manage.py createsuperuser
+```
+
+`web`'s entrypoint (`docker-entrypoint.sh`) runs migrations and
+`collectstatic` on every container start before starting gunicorn, so a
+redeploy is just `git pull && docker compose up -d --build` — no
+separate migrate step to remember. `POSTGRES_HOST` is forced to `db`
+(the compose service name) regardless of what's in `.env`, since
+containers reach each other by service name, not `localhost`.
+
+Not included: TLS and a public hostname. Either put a reverse proxy
+(nginx, Caddy) in front of the VM terminating TLS and forwarding to
+`web`'s port 8000, or put the VM behind something that already does
+that (a load balancer, Azure Front Door, etc.) — `DJANGO_ALLOWED_HOSTS`
+needs to match whatever hostname reaches Django either way.
+
 ## Apps
 
 - **catalog** — services/APIs/templates, searchable (htmx live search).

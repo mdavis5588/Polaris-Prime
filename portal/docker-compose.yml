@@ -10,6 +10,29 @@ services:
       - '${POSTGRES_PORT:-5432}:5432'
     volumes:
       - polaris_portal_db:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ${POSTGRES_USER:-polaris}']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Overrides whatever POSTGRES_HOST is in .env (e.g. "localhost" for
+      # non-Docker dev) — inside compose, containers reach the db by its
+      # service name, not localhost.
+      POSTGRES_HOST: db
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - '${WEB_PORT:-8000}:8000'
+    volumes:
+      - polaris_portal_static:/app/staticfiles
 
 volumes:
   polaris_portal_db:
+  polaris_portal_static:
