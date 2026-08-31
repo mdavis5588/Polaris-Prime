@@ -98,6 +98,13 @@ class NetworkProvider(ABC):
         Polaris controls: access is the scoping mechanism, by design — see
         networking/services.py: reconcile_resource_groups). For on-prem,
         every VLAN in the configured NetBox group/site.
+
+        May raise ProviderNotConfigured instead, for a provider with no
+        way to enumerate real state at all (mock.py) — distinct from
+        returning an empty list, which means "checked, there are none."
+        reconcile_resource_groups treats a raise as "nothing to compare,
+        skip reconciliation" rather than marking every tracked resource
+        group GONE.
         """
 
     @abstractmethod

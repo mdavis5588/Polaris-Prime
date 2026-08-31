@@ -122,6 +122,18 @@ needs to match whatever hostname reaches Django either way.
   provisioning needs, and the tenants app entry above for per-tenant
   Azure credentials.
 
+  No Azure service principal yet? Set `AZURE_MOCK_MODE=true` and give a
+  Tenant any placeholder `azure_subscription_id` via `/admin/` —
+  `networking/providers/mock.py` swaps in for the real Azure provider
+  and every create action succeeds with fake data, so Networking (and
+  Orion downstream) is fully exercisable with zero real credentials.
+  `list_resource_groups`/`list_subnets`/`list_nsgs`/`list_rules`/
+  `list_deployments` all raise `ProviderNotConfigured` in mock mode
+  rather than returning an empty list — reconciliation
+  (`reconcile_resource_groups`) treats that as "nothing real to compare
+  against, skip" instead of wrongly marking every mock-created resource
+  GONE. Turn the flag off the moment real credentials exist.
+
   Polaris's own Postgres database is the only source of truth for which
   tenant a Resource Group (or Subnet, NSG, rule, deployment) belongs to
   — nothing about that tie is read from Azure or NetBox, so a resource

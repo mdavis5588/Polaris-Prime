@@ -48,6 +48,9 @@ def resource_group_sync(request, target):
             except Exception as exc:  # noqa: BLE001 — surfaced to the user, not a 500
                 messages.error(request, f"Sync failed: {exc}")
             else:
+                if not result["available"]:
+                    messages.info(request, "Sync isn't available — there's nothing real to check against for this target (e.g. mock mode).")
+                    return redirect("networking:index")
                 imported_rgs = len(result["imported_rgs"])
                 gone_rgs = len(result["gone_rgs"])
                 imported_children = result["imported_children"]

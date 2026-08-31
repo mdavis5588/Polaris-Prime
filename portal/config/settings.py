@@ -195,6 +195,18 @@ GRAPH_CLIENT_SECRET = os.environ.get("AZURE_AD_GRAPH_CLIENT_SECRET", _azure_clie
 GRAPH_TENANT_ID = _azure_tenant_id
 
 
+# --- Networking: swap the real Azure provisioning provider for a fake
+# one (networking/providers/mock.py) that never calls ARM/Network/Compute
+# — for exercising Networking/Orion end to end without a real Azure
+# service principal (e.g. while Entra ID app registration access isn't
+# available yet). A Tenant still needs azure_subscription_id set (any
+# placeholder value) to unlock the Azure target in the UI at all; the
+# real azure_tenant_id/azure_client_id/client secret are never read in
+# mock mode. Turn this off the moment real credentials exist.
+
+AZURE_MOCK_MODE = env_bool("AZURE_MOCK_MODE", False)
+
+
 # --- Networking: NetBox (on-prem VLAN/IPAM + NSG-equivalent access lists
 # via the community netbox-acls plugin — see networking/providers/netbox.py).
 # One NetBox instance/parent prefix is shared across all on-prem tenants;

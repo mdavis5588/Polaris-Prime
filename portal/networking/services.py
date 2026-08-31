@@ -5,23 +5,29 @@ first, calls the provider, then marks the row active/failed so the UI can
 show in-progress state without blocking the request on the provider call.
 """
 
+from django.conf import settings
 from tenants.models import Tenant
 
 from .models import NetworkSecurityGroup, NsgRule, ProvisioningStatus, ResourceGroup, ServiceDeployment, Subnet
 from .providers.azure import AzureDeploymentProvider, AzureNetworkProvider
-from .providers.base import DeploymentProvider, DeploymentSpec, NetworkProvider, RuleSpec
+from .providers.base import DeploymentProvider, DeploymentSpec, NetworkProvider, ProviderNotConfigured, RuleSpec
+from .providers.mock import MockDeploymentProvider, MockNetworkProvider
 from .providers.onprem import OnPremDeploymentProvider, OnPremNetworkProvider
 
 
 def get_network_provider(tenant: Tenant, target: str) -> NetworkProvider:
     if target == "onprem":
         return OnPremNetworkProvider(tenant.netbox_site_id)
+    if settings.AZURE_MOCK_MODE:
+        return MockNetworkProvider()
     return AzureNetworkProvider(tenant)
 
 
 def get_deployment_provider(tenant: Tenant, target: str) -> DeploymentProvider:
     if target == "onprem":
         return OnPremDeploymentProvider()
+    if settings.AZURE_MOCK_MODE:
+        return MockDeploymentProvider()
     return AzureDeploymentProvider(tenant)
 
 
@@ -89,8 +95,23 @@ def reconcile_resource_groups(tenant: Tenant, target: str) -> dict:
     gone_rgs: list[ResourceGroup] = []
     imported_children = 0
     gone_children = 0
+    available = True
 
-    discovered_rgs = network_provider.list_resource_groups()
+    try:
+        discovered_rgs = network_provider.list_resource_groups()
+    except ProviderNotConfigured:
+        # Nothing real to check against (e.g. AZURE_MOCK_MODE — see
+        # providers/mock.py) — skip reconciliation entirely rather than
+        # treating "can't enumerate" as "there are none" and marking
+        # every tracked resource group GONE.
+        return {
+            "imported_rgs": imported_rgs,
+            "gone_rgs": gone_rgs,
+            "imported_children": imported_children,
+            "gone_children": gone_children,
+            "available": False,
+        }
+
     discovered_rg_ids = {rg.external_id for rg in discovered_rgs}
     known_rg_ids = set(ResourceGroup.objects.filter(tenant=tenant, target=target).values_list("external_id", flat=True))
 
@@ -124,6 +145,7 @@ def reconcile_resource_groups(tenant: Tenant, target: str) -> dict:
         "gone_rgs": gone_rgs,
         "imported_children": imported_children,
         "gone_children": gone_children,
+        "available": available,
     }
 
 
